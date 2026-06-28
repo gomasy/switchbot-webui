@@ -7,6 +7,7 @@ COPY tsconfig.json ./
 RUN npm run build
 
 FROM rust:1-slim AS backend
+RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 RUN mkdir src && echo 'fn main() {}' > src/main.rs && cargo build --release && rm src/main.rs
