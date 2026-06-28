@@ -1,0 +1,28 @@
+{
+  "name": "switchbot-webui",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "source": "src/index.html",
+  "scripts": {
+    "dev": "npm run clean && concurrently -k \"parcel watch\" \"node server.js\"",
+    "build": "npm run clean && parcel build",
+    "start": "node server.js",
+    "clean": "rm -rf dist .parcel-cache"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "concurrently": "^10.0.3",
+    "parcel": "^2.15.0",
+    "process": "^0.11.10",
+    "typescript": "^5.8.0"
+  },
+  "browserslist": "> 0.5%, last 2 versions, not dead"
+}
