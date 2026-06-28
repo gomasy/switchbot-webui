@@ -31,7 +31,14 @@ function roomName(hubName: string): string {
   );
 }
 
+function getInitialTheme(): boolean {
+  const saved = localStorage.getItem("theme");
+  if (saved) return saved === "dark";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
 export function App() {
+  const [darkMode, setDarkMode] = useState(getInitialTheme);
   const [devices, setDevices] = useState<Device[]>([]);
   const [irDevices, setIrDevices] = useState<InfraredDevice[]>([]);
   const [scenes, setScenes] = useState<Scene[]>([]);
@@ -45,6 +52,11 @@ export function App() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [executingScene, setExecutingScene] = useState<string | null>(null);
   const toastId = useRef(0);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", darkMode ? "dark" : "light");
+    localStorage.setItem("theme", darkMode ? "dark" : "light");
+  }, [darkMode]);
 
   const rooms = useMemo(() => {
     const hubMap = new Map<string, string>();
@@ -161,7 +173,12 @@ export function App() {
 
   return (
     <>
-      <Header loading={loading} onRefresh={fetchData} />
+      <Header
+        loading={loading}
+        onRefresh={fetchData}
+        darkMode={darkMode}
+        onToggleTheme={() => setDarkMode((v) => !v)}
+      />
 
       <main className="main">
         {error ? (
