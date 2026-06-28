@@ -5,14 +5,12 @@
   "type": "module",
   "source": "src/index.html",
   "scripts": {
-    "dev": "npm run clean && concurrently -k \"parcel watch\" \"node server.js\"",
+    "dev": "npm run clean && concurrently -k \"parcel watch\" \"cargo run\"",
     "build": "npm run clean && parcel build",
-    "start": "node server.js",
+    "start": "cargo run --release",
     "clean": "rm -rf dist .parcel-cache"
   },
   "dependencies": {
-    "dotenv": "^17.4.2",
-    "express": "^5.2.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },

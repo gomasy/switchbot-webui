@@ -2,3 +2,8 @@ node_modules/
 dist/
 .parcel-cache/
 .env
+
+
+# Added by cargo
+
+/target

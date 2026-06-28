@@ -69,6 +69,29 @@ const AC_FAN_SPEEDS = [
   { value: 4, label: "強" },
 ] as const;
 
+function PowerButtons({ send, sending }: { send: (cmd: string) => void; sending: boolean }) {
+  return (
+    <div className="control-section">
+      <div className="action-buttons">
+        <button className="action-btn action-btn-primary" onClick={() => send("turnOn")} disabled={sending}>ON</button>
+        <button className="action-btn action-btn-secondary" onClick={() => send("turnOff")} disabled={sending}>OFF</button>
+      </div>
+    </div>
+  );
+}
+
+function VolumeButtons({ send, sending }: { send: (cmd: string) => void; sending: boolean }) {
+  return (
+    <div className="control-section">
+      <div className="control-section-title">音量</div>
+      <div className="action-buttons">
+        <button className="action-btn action-btn-secondary" onClick={() => send("volumeSub")} disabled={sending}>-</button>
+        <button className="action-btn action-btn-secondary" onClick={() => send("volumeAdd")} disabled={sending}>+</button>
+      </div>
+    </div>
+  );
+}
+
 export function DeviceDetail({
   device,
   isInfrared,
@@ -559,43 +582,8 @@ export function DeviceDetail({
               {/* IR: TV / Streamer / STB */}
               {isInfrared && isTV && (
                 <>
-                  <div className="control-section">
-                    <div className="action-buttons">
-                      <button
-                        className="action-btn action-btn-primary"
-                        onClick={() => send("turnOn")}
-                        disabled={sending}
-                      >
-                        ON
-                      </button>
-                      <button
-                        className="action-btn action-btn-secondary"
-                        onClick={() => send("turnOff")}
-                        disabled={sending}
-                      >
-                        OFF
-                      </button>
-                    </div>
-                  </div>
-                  <div className="control-section">
-                    <div className="control-section-title">音量</div>
-                    <div className="action-buttons">
-                      <button
-                        className="action-btn action-btn-secondary"
-                        onClick={() => send("volumeSub")}
-                        disabled={sending}
-                      >
-                        -
-                      </button>
-                      <button
-                        className="action-btn action-btn-secondary"
-                        onClick={() => send("volumeAdd")}
-                        disabled={sending}
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
+                  <PowerButtons send={send} sending={sending} />
+                  <VolumeButtons send={send} sending={sending} />
                   <div className="control-section">
                     <div className="control-section-title">チャンネル</div>
                     <div className="action-buttons">
@@ -621,24 +609,7 @@ export function DeviceDetail({
               {/* IR: Fan */}
               {isInfrared && isFan && (
                 <>
-                  <div className="control-section">
-                    <div className="action-buttons">
-                      <button
-                        className="action-btn action-btn-primary"
-                        onClick={() => send("turnOn")}
-                        disabled={sending}
-                      >
-                        ON
-                      </button>
-                      <button
-                        className="action-btn action-btn-secondary"
-                        onClick={() => send("turnOff")}
-                        disabled={sending}
-                      >
-                        OFF
-                      </button>
-                    </div>
-                  </div>
+                  <PowerButtons send={send} sending={sending} />
                   <div className="control-section">
                     <div className="control-section-title">風量</div>
                     <div className="segment-control">
@@ -689,24 +660,7 @@ export function DeviceDetail({
               {/* IR: Light */}
               {isInfrared && isIRLight && (
                 <>
-                  <div className="control-section">
-                    <div className="action-buttons">
-                      <button
-                        className="action-btn action-btn-primary"
-                        onClick={() => send("turnOn")}
-                        disabled={sending}
-                      >
-                        ON
-                      </button>
-                      <button
-                        className="action-btn action-btn-secondary"
-                        onClick={() => send("turnOff")}
-                        disabled={sending}
-                      >
-                        OFF
-                      </button>
-                    </div>
-                  </div>
+                  <PowerButtons send={send} sending={sending} />
                   <div className="control-section">
                     <div className="control-section-title">明るさ</div>
                     <div className="action-buttons">
@@ -743,48 +697,13 @@ export function DeviceDetail({
               {/* IR: DVD / Speaker / Projector */}
               {isInfrared && isDVDSpeaker && (
                 <>
-                  <div className="control-section">
-                    <div className="action-buttons">
-                      <button
-                        className="action-btn action-btn-primary"
-                        onClick={() => send("turnOn")}
-                        disabled={sending}
-                      >
-                        ON
-                      </button>
-                      <button
-                        className="action-btn action-btn-secondary"
-                        onClick={() => send("turnOff")}
-                        disabled={sending}
-                      >
-                        OFF
-                      </button>
-                    </div>
-                  </div>
+                  <PowerButtons send={send} sending={sending} />
                   <div className="control-section">
                     <div className="control-section-title">音量</div>
                     <div className="action-buttons">
-                      <button
-                        className="action-btn action-btn-secondary"
-                        onClick={() => send("volumeSub")}
-                        disabled={sending}
-                      >
-                        -
-                      </button>
-                      <button
-                        className="action-btn action-btn-secondary"
-                        onClick={() => send("setMute")}
-                        disabled={sending}
-                      >
-                        ミュート
-                      </button>
-                      <button
-                        className="action-btn action-btn-secondary"
-                        onClick={() => send("volumeAdd")}
-                        disabled={sending}
-                      >
-                        +
-                      </button>
+                      <button className="action-btn action-btn-secondary" onClick={() => send("volumeSub")} disabled={sending}>-</button>
+                      <button className="action-btn action-btn-secondary" onClick={() => send("setMute")} disabled={sending}>ミュート</button>
+                      <button className="action-btn action-btn-secondary" onClick={() => send("volumeAdd")} disabled={sending}>+</button>
                     </div>
                   </div>
                   <div className="control-section">
@@ -872,26 +791,7 @@ export function DeviceDetail({
               )}
 
               {/* IR: Unknown type fallback */}
-              {isUnknownIR && (
-                <div className="control-section">
-                  <div className="action-buttons">
-                    <button
-                      className="action-btn action-btn-primary"
-                      onClick={() => send("turnOn")}
-                      disabled={sending}
-                    >
-                      ON
-                    </button>
-                    <button
-                      className="action-btn action-btn-secondary"
-                      onClick={() => send("turnOff")}
-                      disabled={sending}
-                    >
-                      OFF
-                    </button>
-                  </div>
-                </div>
-              )}
+              {isUnknownIR && <PowerButtons send={send} sending={sending} />}
 
               {controls.length === 0 &&
                 !isInfrared &&

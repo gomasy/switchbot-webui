@@ -1,4 +1,4 @@
-FROM node:24-slim AS build
+FROM node:24-slim AS frontend
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
@@ -6,11 +6,17 @@ COPY src/ src/
 COPY tsconfig.json ./
 RUN npm run build
 
-FROM node:24-slim
+FROM rust:1-slim AS backend
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
-COPY server.js ./
-COPY --from=build /app/dist/ dist/
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir src && echo 'fn main() {}' > src/main.rs && cargo build --release && rm src/main.rs
+COPY src/main.rs src/main.rs
+RUN touch src/main.rs && cargo build --release
+
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY --from=backend /app/target/release/switchbot-webui ./
+COPY --from=frontend /app/dist/ dist/
 EXPOSE 3000
-CMD ["node", "server.js"]
+CMD ["./switchbot-webui"]
