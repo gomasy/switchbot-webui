@@ -34,11 +34,12 @@ function formatStatus(status: DeviceStatus | null): string {
 interface Props {
   device: Device | InfraredDevice;
   isInfrared: boolean;
+  externalStatus?: DeviceStatus | null;
   onClick: () => void;
   onToast: (msg: string, type: "success" | "error") => void;
 }
 
-export function DeviceCard({ device, isInfrared, onClick, onToast }: Props) {
+export function DeviceCard({ device, isInfrared, externalStatus, onClick, onToast }: Props) {
   const [status, setStatus] = useState<DeviceStatus | null>(null);
   const [toggling, setToggling] = useState(false);
 
@@ -50,6 +51,10 @@ export function DeviceCard({ device, isInfrared, onClick, onToast }: Props) {
       })
       .catch(() => {});
   }, [device.deviceId, isInfrared]);
+
+  useEffect(() => {
+    if (externalStatus) setStatus(externalStatus);
+  }, [externalStatus]);
 
   const handleToggle = async (e: React.MouseEvent) => {
     e.stopPropagation();

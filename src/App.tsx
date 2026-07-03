@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getDevices, getScenes, executeScene } from "./api";
-import type { Device, InfraredDevice, Scene } from "./types";
+import type { Device, DeviceStatus, InfraredDevice, Scene } from "./types";
 import { Header } from "./components/Header";
 import { DeviceCard } from "./components/DeviceCard";
 import { DeviceDetail } from "./components/DeviceDetail";
@@ -51,6 +51,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [executingScene, setExecutingScene] = useState<string | null>(null);
+  const [deviceStatuses, setDeviceStatuses] = useState<Record<string, DeviceStatus>>({});
   const toastId = useRef(0);
 
   useEffect(() => {
@@ -202,6 +203,7 @@ export function App() {
                       key={device.deviceId}
                       device={device}
                       isInfrared={isInfrared}
+                      externalStatus={deviceStatuses[device.deviceId]}
                       onClick={() =>
                         setSelectedDevice({ device, isInfrared })
                       }
@@ -277,7 +279,15 @@ export function App() {
         <DeviceDetail
           device={selectedDevice.device}
           isInfrared={selectedDevice.isInfrared}
-          onClose={() => setSelectedDevice(null)}
+          onClose={(updatedStatus) => {
+            if (updatedStatus) {
+              setDeviceStatuses((prev) => ({
+                ...prev,
+                [selectedDevice.device.deviceId]: updatedStatus,
+              }));
+            }
+            setSelectedDevice(null);
+          }}
           onToast={addToast}
         />
       )}

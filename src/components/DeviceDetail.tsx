@@ -6,7 +6,7 @@ import type { Device, InfraredDevice, DeviceStatus } from "../types";
 interface Props {
   device: Device | InfraredDevice;
   isInfrared: boolean;
-  onClose: () => void;
+  onClose: (updatedStatus?: DeviceStatus | null) => void;
   onToast: (msg: string, type: "success" | "error") => void;
 }
 
@@ -278,10 +278,10 @@ export function DeviceDetail({
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={() => onClose(status)}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <button className="modal-close" onClick={onClose}>
+          <button className="modal-close" onClick={() => onClose(status)}>
             ✕
           </button>
           <div className="modal-device-icon">{getDeviceIcon(typeLabel)}</div>
