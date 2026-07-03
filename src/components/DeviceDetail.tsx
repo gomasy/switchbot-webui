@@ -80,18 +80,6 @@ function PowerButtons({ send, sending }: { send: (cmd: string) => void; sending:
   );
 }
 
-function VolumeButtons({ send, sending }: { send: (cmd: string) => void; sending: boolean }) {
-  return (
-    <div className="control-section">
-      <div className="control-section-title">音量</div>
-      <div className="action-buttons">
-        <button className="action-btn action-btn-secondary" onClick={() => send("volumeSub")} disabled={sending}>-</button>
-        <button className="action-btn action-btn-secondary" onClick={() => send("volumeAdd")} disabled={sending}>+</button>
-      </div>
-    </div>
-  );
-}
-
 export function DeviceDetail({
   device,
   isInfrared,
@@ -122,6 +110,29 @@ export function DeviceDetail({
   const [acFan, setAcFan] = useState(savedAc?.fan ?? 1);
   const [acPower, setAcPower] = useState(savedAc?.power ?? false);
   const [customBtn, setCustomBtn] = useState("");
+
+  const diyKey = `custom-buttons-${device.deviceId}`;
+  const [diyButtons, setDiyButtons] = useState<{ id: string; label: string }[]>(() => {
+    try {
+      const v = localStorage.getItem(diyKey);
+      return v ? JSON.parse(v) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [diyEditing, setDiyEditing] = useState(false);
+  const [diyNewId, setDiyNewId] = useState("");
+  const [diyNewLabel, setDiyNewLabel] = useState("");
+
+  const saveDiyButtons = (buttons: { id: string; label: string }[]) => {
+    setDiyButtons(buttons);
+    try { localStorage.setItem(diyKey, JSON.stringify(buttons)); } catch {}
+  };
+
+  useEffect(() => {
+    document.body.classList.add("modal-open");
+    return () => document.body.classList.remove("modal-open");
+  }, []);
 
   const fetchStatus = useCallback(async () => {
     if (isInfrared) return;
@@ -218,9 +229,10 @@ export function DeviceDetail({
     remoteType.includes("dvd") ||
     remoteType.includes("speaker") ||
     remoteType.includes("projector");
+  const isDIY = remoteType.startsWith("diy");
   const isOthers = isInfrared && remoteType === "others";
   const isUnknownIR =
-    isInfrared && !isAC && !isTV && !isFan && !isIRLight && !isDVDSpeaker && !isOthers;
+    isInfrared && !isAC && !isTV && !isFan && !isIRLight && !isDVDSpeaker && !isDIY && !isOthers;
 
   const statusItems: { label: string; value: string }[] = [];
   if (status) {
@@ -583,24 +595,27 @@ export function DeviceDetail({
               {isInfrared && isTV && (
                 <>
                   <PowerButtons send={send} sending={sending} />
-                  <VolumeButtons send={send} sending={sending} />
+                  <div className="control-section">
+                    <div className="control-section-title">音量</div>
+                    <div className="action-buttons">
+                      <button className="action-btn action-btn-secondary" onClick={() => send("volumeSub")} disabled={sending}>-</button>
+                      <button className="action-btn action-btn-secondary" onClick={() => send("setMute")} disabled={sending}>ミュート</button>
+                      <button className="action-btn action-btn-secondary" onClick={() => send("volumeAdd")} disabled={sending}>+</button>
+                    </div>
+                  </div>
                   <div className="control-section">
                     <div className="control-section-title">チャンネル</div>
-                    <div className="action-buttons">
-                      <button
-                        className="action-btn action-btn-secondary"
-                        onClick={() => send("channelSub")}
-                        disabled={sending}
-                      >
-                        -
-                      </button>
-                      <button
-                        className="action-btn action-btn-secondary"
-                        onClick={() => send("channelAdd")}
-                        disabled={sending}
-                      >
-                        +
-                      </button>
+                    <div className="channel-grid">
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map((ch) => (
+                        <button
+                          key={ch}
+                          className="channel-btn"
+                          onClick={() => send("SetChannel", ch)}
+                          disabled={sending}
+                        >
+                          {ch}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </>
@@ -680,17 +695,19 @@ export function DeviceDetail({
                       </button>
                     </div>
                   </div>
-                  <div className="control-section">
-                    <div className="action-buttons">
-                      <button
-                        className="action-btn action-btn-secondary"
-                        onClick={() => send("colorTemperature")}
-                        disabled={sending}
-                      >
-                        色温度切替
-                      </button>
+                  {!isDIY && (
+                    <div className="control-section">
+                      <div className="action-buttons">
+                        <button
+                          className="action-btn action-btn-secondary"
+                          onClick={() => send("colorTemperature")}
+                          disabled={sending}
+                        >
+                          色温度切替
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </>
               )}
 
@@ -698,64 +715,117 @@ export function DeviceDetail({
               {isInfrared && isDVDSpeaker && (
                 <>
                   <PowerButtons send={send} sending={sending} />
-                  <div className="control-section">
-                    <div className="control-section-title">音量</div>
-                    <div className="action-buttons">
-                      <button className="action-btn action-btn-secondary" onClick={() => send("volumeSub")} disabled={sending}>-</button>
-                      <button className="action-btn action-btn-secondary" onClick={() => send("setMute")} disabled={sending}>ミュート</button>
-                      <button className="action-btn action-btn-secondary" onClick={() => send("volumeAdd")} disabled={sending}>+</button>
-                    </div>
-                  </div>
-                  <div className="control-section">
-                    <div className="control-section-title">再生</div>
-                    <div className="action-buttons">
-                      <button
-                        className="action-btn action-btn-secondary"
-                        onClick={() => send("Rewind")}
-                        disabled={sending}
-                      >
-                        ◀◀
-                      </button>
-                      <button
-                        className="action-btn action-btn-primary"
-                        onClick={() => send("Play")}
-                        disabled={sending}
-                      >
-                        ▶
-                      </button>
-                      <button
-                        className="action-btn action-btn-secondary"
-                        onClick={() => send("FastForward")}
-                        disabled={sending}
-                      >
-                        ▶▶
-                      </button>
-                    </div>
-                    <div className="action-buttons" style={{ marginTop: 8 }}>
-                      <button
-                        className="action-btn action-btn-secondary"
-                        onClick={() => send("Previous")}
-                        disabled={sending}
-                      >
-                        前へ
-                      </button>
-                      <button
-                        className="action-btn action-btn-secondary"
-                        onClick={() => send("Pause")}
-                        disabled={sending}
-                      >
-                        一時停止
-                      </button>
-                      <button
-                        className="action-btn action-btn-secondary"
-                        onClick={() => send("Next")}
-                        disabled={sending}
-                      >
-                        次へ
-                      </button>
-                    </div>
-                  </div>
+                  {!isDIY && (
+                    <>
+                      <div className="control-section">
+                        <div className="control-section-title">音量</div>
+                        <div className="action-buttons">
+                          <button className="action-btn action-btn-secondary" onClick={() => send("volumeSub")} disabled={sending}>-</button>
+                          <button className="action-btn action-btn-secondary" onClick={() => send("setMute")} disabled={sending}>ミュート</button>
+                          <button className="action-btn action-btn-secondary" onClick={() => send("volumeAdd")} disabled={sending}>+</button>
+                        </div>
+                      </div>
+                      <div className="control-section">
+                        <div className="control-section-title">再生</div>
+                        <div className="action-buttons">
+                          <button className="action-btn action-btn-secondary" onClick={() => send("Rewind")} disabled={sending}>◀◀</button>
+                          <button className="action-btn action-btn-primary" onClick={() => send("Play")} disabled={sending}>▶</button>
+                          <button className="action-btn action-btn-secondary" onClick={() => send("FastForward")} disabled={sending}>▶▶</button>
+                        </div>
+                        <div className="action-buttons" style={{ marginTop: 8 }}>
+                          <button className="action-btn action-btn-secondary" onClick={() => send("Previous")} disabled={sending}>前へ</button>
+                          <button className="action-btn action-btn-secondary" onClick={() => send("Pause")} disabled={sending}>一時停止</button>
+                          <button className="action-btn action-btn-secondary" onClick={() => send("Next")} disabled={sending}>次へ</button>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </>
+              )}
+
+              {/* IR: custom buttons */}
+              {isInfrared && !isOthers && !isUnknownIR && (
+                <div className="control-section">
+                  <div className="control-section-header">
+                    <div className="control-section-title" style={{ marginBottom: 0 }}>カスタムボタン</div>
+                    <button
+                      className="edit-toggle-btn"
+                      onClick={() => setDiyEditing((v) => !v)}
+                    >
+                      {diyEditing ? "完了" : "編集"}
+                    </button>
+                  </div>
+                  {diyButtons.length > 0 && (
+                    <div className="diy-button-grid">
+                      {diyButtons.map((btn) => (
+                        <div key={btn.id} className="diy-button-wrapper">
+                          <button
+                            className="action-btn action-btn-secondary"
+                            onClick={() => send(btn.id, "default", "customize")}
+                            disabled={sending || diyEditing}
+                          >
+                            {btn.label}
+                          </button>
+                          {diyEditing && (
+                            <button
+                              className="diy-remove-btn"
+                              onClick={() => saveDiyButtons(diyButtons.filter((b) => b.id !== btn.id))}
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {diyEditing && (
+                    <form
+                      className="diy-add-form"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const id = diyNewId.trim();
+                        const label = diyNewLabel.trim();
+                        if (id && label && !diyButtons.some((b) => b.id === id)) {
+                          saveDiyButtons([...diyButtons, { id, label }]);
+                          setDiyNewId("");
+                          setDiyNewLabel("");
+                        }
+                      }}
+                    >
+                      <div className="diy-add-row">
+                        <input
+                          type="text"
+                          className="custom-btn-input"
+                          placeholder="番号"
+                          inputMode="numeric"
+                          value={diyNewId}
+                          onChange={(e) => setDiyNewId(e.target.value)}
+                          style={{ flex: 1 }}
+                        />
+                        <input
+                          type="text"
+                          className="custom-btn-input"
+                          placeholder="表示名"
+                          value={diyNewLabel}
+                          onChange={(e) => setDiyNewLabel(e.target.value)}
+                          style={{ flex: 2 }}
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        className="action-btn action-btn-primary"
+                        disabled={!diyNewId.trim() || !diyNewLabel.trim()}
+                      >
+                        追加
+                      </button>
+                    </form>
+                  )}
+                  {diyButtons.length === 0 && !diyEditing && (
+                    <div className="diy-empty">
+                      「編集」からボタンを登録してください
+                    </div>
+                  )}
+                </div>
               )}
 
               {/* IR: Others (custom buttons only) */}
