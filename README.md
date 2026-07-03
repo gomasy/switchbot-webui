@@ -9,12 +9,14 @@ A web-based control panel using the SwitchBot API v1.1.
 - Custom button support for "Others" type remotes
 - Scene execution
 - Room-based device grouping via Hub association
+- Dark mode / light mode toggle
 
 ## Setup
 
 ### Prerequisites
 
 - Node.js 20+
+- Rust 1.85+
 - SwitchBot API token and secret (obtain from the [SwitchBot app](https://support.switch-bot.com/hc/en-us/articles/12822710195351))
 
 ### Installation
@@ -37,7 +39,7 @@ SWITCHBOT_SECRET=your_secret
 npm run dev
 ```
 
-Access at http://localhost:3000.
+Runs the Parcel dev server and Rust backend concurrently. Access at http://localhost:3000.
 
 ### Production
 
@@ -46,11 +48,22 @@ npm run build
 npm start
 ```
 
+### Docker
+
+```bash
+docker run -d -p 3000:3000 \
+  -e SWITCHBOT_TOKEN=your_token \
+  -e SWITCHBOT_SECRET=your_secret \
+  ghcr.io/gomasy/switchbot-webui
+```
+
+Multi-architecture images (amd64 / arm64) are automatically built via GitHub Actions.
+
 ## Tech Stack
 
 - React 19 / TypeScript
 - Parcel 2
-- Express 5 (API proxy with HMAC-SHA256 authentication)
+- Rust / axum (API proxy with HMAC-SHA256 authentication)
 
 ## License
 
