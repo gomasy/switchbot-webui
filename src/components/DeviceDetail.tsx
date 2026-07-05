@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { getDeviceStatus, sendCommand } from "../api";
-import { getDeviceIcon } from "../deviceIcon";
+import { getControls, getDeviceIcon } from "../deviceRegistry";
 import type { Device, InfraredDevice, DeviceStatus } from "../types";
 
 interface Props {
@@ -8,50 +8,6 @@ interface Props {
   isInfrared: boolean;
   onClose: (updatedStatus?: DeviceStatus | null) => void;
   onToast: (msg: string, type: "success" | "error") => void;
-}
-
-type ControlKind =
-  | "power"
-  | "press"
-  | "brightness"
-  | "color"
-  | "colorTemp"
-  | "position"
-  | "lock"
-  | "vacuum"
-  | "humidity";
-
-function getControls(deviceType: string): ControlKind[] {
-  const t = deviceType.toLowerCase();
-  if (
-    t.includes("meter") ||
-    t.includes("motion") ||
-    t.includes("contact") ||
-    t.includes("keypad")
-  )
-    return [];
-  if (t.includes("bot")) return ["power", "press"];
-  if (t.includes("color bulb") || t.includes("strip"))
-    return ["power", "brightness", "color", "colorTemp"];
-  if (t.includes("ceiling light"))
-    return ["power", "brightness", "colorTemp"];
-  if (t.includes("bulb") || t.includes("light") || t.includes("lamp"))
-    return ["power", "brightness"];
-  if (t.includes("curtain") || t.includes("blind") || t.includes("roller"))
-    return ["position"];
-  if (t.includes("lock")) return ["lock"];
-  if (t.includes("humidifier")) return ["power", "humidity"];
-  if (
-    t.includes("vacuum") ||
-    t.includes("k10") ||
-    t.includes("k20") ||
-    t.includes("s10") ||
-    t.includes("k11")
-  )
-    return ["vacuum"];
-  if (t.includes("plug")) return ["power"];
-  if (t.includes("hub")) return [];
-  return ["power"];
 }
 
 const AC_MODES = [

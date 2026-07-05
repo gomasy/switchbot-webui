@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getDevices, getScenes, executeScene } from "./api";
+import { isHub } from "./deviceRegistry";
 import type { Device, DeviceStatus, InfraredDevice, Scene } from "./types";
 import { Header } from "./components/Header";
 import { DeviceCard } from "./components/DeviceCard";
@@ -62,7 +63,7 @@ export function App() {
   const rooms = useMemo(() => {
     const hubMap = new Map<string, string>();
     for (const d of devices) {
-      if (d.deviceType.toLowerCase().includes("hub")) {
+      if (isHub(d.deviceType)) {
         hubMap.set(d.deviceId, roomName(d.deviceName));
       }
     }
@@ -85,7 +86,7 @@ export function App() {
     }
 
     for (const d of devices) {
-      if (d.deviceType.toLowerCase().includes("hub")) {
+      if (isHub(d.deviceType)) {
         add(d.deviceId, d, false);
       } else if (d.hubDeviceId) {
         add(d.hubDeviceId, d, false);

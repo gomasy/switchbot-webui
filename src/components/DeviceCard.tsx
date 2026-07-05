@@ -1,21 +1,7 @@
 import { useEffect, useState } from "react";
 import { getDeviceStatus, sendCommand } from "../api";
-import { getDeviceIcon } from "../deviceIcon";
+import { getControls, getDeviceIcon } from "../deviceRegistry";
 import type { Device, InfraredDevice, DeviceStatus } from "../types";
-
-function isToggleable(deviceType: string): boolean {
-  const t = deviceType.toLowerCase();
-  return (
-    t.includes("bot") ||
-    t.includes("plug") ||
-    t.includes("bulb") ||
-    t.includes("light") ||
-    t.includes("strip") ||
-    t.includes("lamp") ||
-    t.includes("humidifier") ||
-    t.includes("ceiling")
-  );
-}
 
 function formatStatus(status: DeviceStatus | null): string {
   if (!status) return "";
@@ -87,7 +73,7 @@ export function DeviceCard({ device, isInfrared, externalStatus, onClick, onToas
     ? (device as InfraredDevice).remoteType
     : (device as Device).deviceType;
   const canToggle =
-    !isInfrared && isToggleable((device as Device).deviceType);
+    !isInfrared && getControls((device as Device).deviceType).includes("power");
   const statusText = isInfrared ? typeLabel : formatStatus(status);
 
   return (
