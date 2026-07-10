@@ -7,16 +7,16 @@ COPY tsconfig.json ./
 RUN npm run build
 
 FROM rust:1-alpine AS backend
-RUN apk add --no-cache musl-dev pkgconfig openssl-dev openssl-libs-static
+RUN apk add --no-cache musl-dev pkgconfig openssl-dev openssl-libs-static ca-certificates
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 RUN mkdir src && echo 'fn main() {}' > src/main.rs && cargo build --release && rm src/main.rs
 COPY src/main.rs src/main.rs
 RUN touch src/main.rs && cargo build --release
 
-FROM alpine:latest
-RUN apk add --no-cache ca-certificates openssl
+FROM scratch
 WORKDIR /app
+COPY --from=backend /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=backend /app/target/release/switchbot-webui ./
 COPY --from=frontend /app/dist/ dist/
 EXPOSE 3000
