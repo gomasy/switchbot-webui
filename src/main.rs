@@ -6,7 +6,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use base64::{Engine, engine::general_purpose::STANDARD};
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use sha2::Sha256;
 use std::{env, net::SocketAddr, sync::Arc, time::SystemTime};
 use tower_http::services::{ServeDir, ServeFile};
