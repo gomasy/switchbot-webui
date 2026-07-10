@@ -40,19 +40,32 @@ fn generate_headers(state: &AppState) -> HeaderMap {
 
     let mut headers = HeaderMap::with_capacity(5);
     headers.insert("Authorization", state.token.clone());
-    headers.insert("sign", HeaderValue::from_str(&sign).expect("base64 is valid header"));
-    headers.insert("t", HeaderValue::from_str(&t).expect("timestamp is valid header"));
-    headers.insert("nonce", HeaderValue::from_str(&nonce).expect("uuid is valid header"));
-    headers.insert("Content-Type", HeaderValue::from_static("application/json; charset=utf8"));
+    headers.insert(
+        "sign",
+        HeaderValue::from_str(&sign).expect("base64 is valid header"),
+    );
+    headers.insert(
+        "t",
+        HeaderValue::from_str(&t).expect("timestamp is valid header"),
+    );
+    headers.insert(
+        "nonce",
+        HeaderValue::from_str(&nonce).expect("uuid is valid header"),
+    );
+    headers.insert(
+        "Content-Type",
+        HeaderValue::from_static("application/json; charset=utf8"),
+    );
     headers
 }
 
-async fn api_proxy(
-    State(state): State<Arc<AppState>>,
-    req: Request<Body>,
-) -> Response {
+async fn api_proxy(State(state): State<Arc<AppState>>, req: Request<Body>) -> Response {
     let method = req.method().clone();
-    let path = req.uri().path_and_query().map(|pq| pq.as_str()).unwrap_or("/");
+    let path = req
+        .uri()
+        .path_and_query()
+        .map(|pq| pq.as_str())
+        .unwrap_or("/");
     let upstream_path = path.strip_prefix("/api").unwrap_or(path);
     let url = format!("https://api.switch-bot.com{upstream_path}");
 
@@ -72,10 +85,12 @@ async fn api_proxy(
 
     match rb.send().await {
         Ok(resp) => {
-            let status = StatusCode::from_u16(resp.status().as_u16())
-                .unwrap_or(StatusCode::BAD_GATEWAY);
+            let status =
+                StatusCode::from_u16(resp.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
             match resp.bytes().await {
-                Ok(bytes) => (status, [(axum::http::header::CONTENT_TYPE, JSON_CT)], bytes).into_response(),
+                Ok(bytes) => {
+                    (status, [(axum::http::header::CONTENT_TYPE, JSON_CT)], bytes).into_response()
+                }
                 Err(_) => error_response(StatusCode::BAD_GATEWAY),
             }
         }
@@ -92,7 +107,10 @@ async fn main() {
     let token = env::var("SWITCHBOT_TOKEN").expect("SWITCHBOT_TOKEN must be set");
     let token = HeaderValue::from_str(&token).expect("SWITCHBOT_TOKEN contains invalid characters");
     let secret = env::var("SWITCHBOT_SECRET").expect("SWITCHBOT_SECRET must be set");
-    let port: u16 = env::var("PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(3000);
+    let port: u16 = env::var("PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(3000);
 
     let state = Arc::new(AppState {
         token,
@@ -105,6 +123,8 @@ async fn main() {
         .fallback_service(ServeDir::new("dist").fallback(ServeFile::new("dist/index.html")));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
-    let listener = tokio::net::TcpListener::bind(addr).await.expect("failed to bind port");
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .expect("failed to bind port");
     axum::serve(listener, app).await.expect("server error");
 }
