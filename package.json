@@ -20,7 +20,7 @@
     "concurrently": "^10.0.3",
     "parcel": "^2.15.0",
     "process": "^0.11.10",
-    "typescript": "^5.8.0"
+    "typescript": "^7.0.0"
   },
   "browserslist": "> 0.5%, last 2 versions, not dead"
 }
