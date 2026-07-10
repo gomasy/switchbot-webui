@@ -7,7 +7,7 @@ COPY tsconfig.json ./
 RUN npm run build
 
 FROM rust:1-alpine AS backend
-RUN apk add --no-cache musl-dev pkgconfig openssl-dev
+RUN apk add --no-cache musl-dev pkgconfig openssl-dev openssl-libs-static
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 RUN mkdir src && echo 'fn main() {}' > src/main.rs && cargo build --release && rm src/main.rs
