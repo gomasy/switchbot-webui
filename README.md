@@ -15,8 +15,8 @@ A web-based control panel using the SwitchBot API v1.1.
 
 ### Prerequisites
 
-- Node.js 20+
-- Rust 1.85+
+- Node.js 22+
+- Rust 1.86+
 - SwitchBot API token and secret (obtain from the [SwitchBot app](https://support.switch-bot.com/hc/en-us/articles/12822710195351))
 
 ### Installation
@@ -32,6 +32,8 @@ Set your token and secret in `.env`:
 SWITCHBOT_TOKEN=your_token
 SWITCHBOT_SECRET=your_secret
 ```
+
+The server listens on port 3000 by default. Set `PORT` to change it.
 
 ### Development
 
