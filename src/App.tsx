@@ -1,36 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { getDevices, getScenes, executeScene } from "./api";
-import { isHub } from "./deviceRegistry";
+import { useToasts } from "./hooks";
+import { groupRooms, type RoomDevice } from "./rooms";
 import type { Device, DeviceStatus, InfraredDevice, Scene } from "./types";
 import { Header } from "./components/Header";
 import { DeviceCard } from "./components/DeviceCard";
 import { DeviceDetail } from "./components/DeviceDetail";
-
-interface Toast {
-  id: number;
-  message: string;
-  type: "success" | "error";
-}
-
-interface RoomDevice {
-  device: Device | InfraredDevice;
-  isInfrared: boolean;
-}
-
-interface Room {
-  name: string;
-  devices: RoomDevice[];
-}
+import { SceneList } from "./components/SceneList";
 
 type Tab = "home" | "scenes";
-
-function roomName(hubName: string): string {
-  return (
-    hubName
-      .replace(/\s*(ハブ|Hub)\s*(Mini|Plus|2|3)?\s*$/i, "")
-      .trim() || hubName
-  );
-}
 
 function getInitialTheme(): boolean {
   const saved = localStorage.getItem("theme");
@@ -43,97 +21,27 @@ export function App() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [irDevices, setIrDevices] = useState<InfraredDevice[]>([]);
   const [scenes, setScenes] = useState<Scene[]>([]);
-  const [selectedDevice, setSelectedDevice] = useState<{
-    device: Device | InfraredDevice;
-    isInfrared: boolean;
-  } | null>(null);
+  const [selectedDevice, setSelectedDevice] = useState<RoomDevice | null>(null);
   const [tab, setTab] = useState<Tab>("home");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [toasts, setToasts] = useState<Toast[]>([]);
   const [executingScene, setExecutingScene] = useState<string | null>(null);
   const [deviceStatuses, setDeviceStatuses] = useState<Record<string, DeviceStatus>>({});
-  const toastId = useRef(0);
+  const { toasts, addToast } = useToasts();
 
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", darkMode ? "dark" : "light");
-    localStorage.setItem("theme", darkMode ? "dark" : "light");
+    const theme = darkMode ? "dark" : "light";
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
   }, [darkMode]);
 
-  const rooms = useMemo(() => {
-    const hubMap = new Map<string, string>();
-    for (const d of devices) {
-      if (isHub(d.deviceType)) {
-        hubMap.set(d.deviceId, roomName(d.deviceName));
-      }
-    }
-
-    function findHubByName(name: string): string | null {
-      for (const [hubId, room] of hubMap) {
-        if (name.startsWith(room)) return hubId;
-      }
-      return null;
-    }
-
-    const roomMap = new Map<string, RoomDevice[]>();
-    function add(
-      key: string,
-      dev: Device | InfraredDevice,
-      isIr: boolean,
-    ) {
-      if (!roomMap.has(key)) roomMap.set(key, []);
-      roomMap.get(key)!.push({ device: dev, isInfrared: isIr });
-    }
-
-    for (const d of devices) {
-      if (isHub(d.deviceType)) {
-        add(d.deviceId, d, false);
-      } else if (d.hubDeviceId) {
-        add(d.hubDeviceId, d, false);
-      } else {
-        add(findHubByName(d.deviceName) || "", d, false);
-      }
-    }
-    for (const d of irDevices) {
-      if (d.hubDeviceId) {
-        add(d.hubDeviceId, d, true);
-      } else {
-        add(findHubByName(d.deviceName) || "", d, true);
-      }
-    }
-
-    const result: Room[] = [];
-    for (const [key, devs] of roomMap) {
-      const name = key ? hubMap.get(key) || key : "その他";
-      result.push({ name, devices: devs });
-    }
-    result.sort((a, b) => {
-      if (a.name === "その他") return 1;
-      if (b.name === "その他") return -1;
-      return a.name.localeCompare(b.name);
-    });
-    return result;
-  }, [devices, irDevices]);
-
-  const addToast = useCallback(
-    (message: string, type: "success" | "error") => {
-      const id = ++toastId.current;
-      setToasts((prev) => [...prev, { id, message, type }]);
-      setTimeout(() => {
-        setToasts((prev) => prev.filter((t) => t.id !== id));
-      }, 3000);
-    },
-    [],
-  );
+  const rooms = useMemo(() => groupRooms(devices, irDevices), [devices, irDevices]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [devRes, sceneRes] = await Promise.all([
-        getDevices(),
-        getScenes(),
-      ]);
+      const [devRes, sceneRes] = await Promise.all([getDevices(), getScenes()]);
       if (devRes.statusCode === 100) {
         setDevices(devRes.body.deviceList || []);
         setIrDevices(devRes.body.infraredRemoteList || []);
@@ -144,9 +52,7 @@ export function App() {
         setScenes(sceneRes.body || []);
       }
     } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "接続に失敗しました",
-      );
+      setError(e instanceof Error ? e.message : "接続に失敗しました");
     } finally {
       setLoading(false);
     }
@@ -205,9 +111,7 @@ export function App() {
                       device={device}
                       isInfrared={isInfrared}
                       externalStatus={deviceStatuses[device.deviceId]}
-                      onClick={() =>
-                        setSelectedDevice({ device, isInfrared })
-                      }
+                      onClick={() => setSelectedDevice({ device, isInfrared })}
                       onToast={addToast}
                     />
                   ))}
@@ -217,45 +121,15 @@ export function App() {
           ) : (
             <div className="empty-state">
               <div className="empty-state-icon">📱</div>
-              <div className="empty-state-text">
-                デバイスが見つかりません
-              </div>
+              <div className="empty-state-text">デバイスが見つかりません</div>
             </div>
           )
         ) : (
-          <>
-            <div className="section-title">シーン</div>
-            {scenes.length > 0 ? (
-              <div className="scene-list">
-                {scenes.map((s) => (
-                  <div key={s.sceneId} className="scene-card">
-                    <div className="scene-card-left">
-                      <span className="scene-card-icon">⚡</span>
-                      <span className="scene-card-name">
-                        {s.sceneName}
-                      </span>
-                    </div>
-                    <button
-                      className="scene-card-run"
-                      onClick={() => handleExecuteScene(s.sceneId)}
-                      disabled={executingScene === s.sceneId}
-                    >
-                      {executingScene === s.sceneId
-                        ? "実行中..."
-                        : "実行"}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="empty-state">
-                <div className="empty-state-icon">⚡</div>
-                <div className="empty-state-text">
-                  シーンが見つかりません
-                </div>
-              </div>
-            )}
-          </>
+          <SceneList
+            scenes={scenes}
+            executingScene={executingScene}
+            onExecute={handleExecuteScene}
+          />
         )}
       </main>
 

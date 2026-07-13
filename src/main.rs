@@ -2,16 +2,23 @@ use axum::{
     Router,
     body::Body,
     extract::{Request, State},
-    http::{HeaderMap, HeaderValue, StatusCode},
+    http::{HeaderMap, HeaderValue, StatusCode, header::CONTENT_TYPE},
     response::{IntoResponse, Response},
 };
 use base64::{Engine, engine::general_purpose::STANDARD};
 use hmac::{Hmac, KeyInit, Mac};
 use sha2::Sha256;
-use std::{env, net::SocketAddr, sync::Arc, time::SystemTime};
+use std::{
+    env,
+    net::SocketAddr,
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 use tower_http::services::{ServeDir, ServeFile};
 
+const SWITCHBOT_API: &str = "https://api.switch-bot.com";
 const JSON_CT: &str = "application/json";
+const MAX_BODY_BYTES: usize = 1024 * 1024;
 
 struct AppState {
     token: HeaderValue,
@@ -22,10 +29,11 @@ struct AppState {
 fn error_response(status: StatusCode) -> Response {
     let code = status.as_u16();
     let body = format!(r#"{{"statusCode":{code},"message":"{status}"}}"#);
-    (status, [(axum::http::header::CONTENT_TYPE, JSON_CT)], body).into_response()
+    (status, [(CONTENT_TYPE, JSON_CT)], body).into_response()
 }
 
-fn generate_headers(state: &AppState) -> HeaderMap {
+/// SwitchBot API v1.1 の認証ヘッダ (token + HMAC-SHA256 署名) を生成する
+fn auth_headers(state: &AppState) -> HeaderMap {
     let t = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .expect("system clock before UNIX epoch")
@@ -53,44 +61,40 @@ fn generate_headers(state: &AppState) -> HeaderMap {
         HeaderValue::from_str(&nonce).expect("uuid is valid header"),
     );
     headers.insert(
-        "Content-Type",
+        CONTENT_TYPE,
         HeaderValue::from_static("application/json; charset=utf8"),
     );
     headers
 }
 
 async fn api_proxy(State(state): State<Arc<AppState>>, req: Request<Body>) -> Response {
-    let method = req.method().clone();
-    let path = req
-        .uri()
+    let (parts, body) = req.into_parts();
+    let path = parts
+        .uri
         .path_and_query()
         .map(|pq| pq.as_str())
         .unwrap_or("/");
     let upstream_path = path.strip_prefix("/api").unwrap_or(path);
-    let url = format!("https://api.switch-bot.com{upstream_path}");
+    let url = format!("{SWITCHBOT_API}{upstream_path}");
 
-    let headers = generate_headers(&state);
-    let body_bytes = match axum::body::to_bytes(req.into_body(), 1024 * 1024).await {
+    let body_bytes = match axum::body::to_bytes(body, MAX_BODY_BYTES).await {
         Ok(b) => b,
         Err(_) => return error_response(StatusCode::BAD_REQUEST),
     };
 
-    let mut rb = state.client.request(method, &url);
-    for (k, v) in &headers {
-        rb = rb.header(k, v);
-    }
+    let mut rb = state
+        .client
+        .request(parts.method, &url)
+        .headers(auth_headers(&state));
     if !body_bytes.is_empty() {
         rb = rb.body(body_bytes);
     }
 
     match rb.send().await {
         Ok(resp) => {
-            let status =
-                StatusCode::from_u16(resp.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
+            let status = resp.status();
             match resp.bytes().await {
-                Ok(bytes) => {
-                    (status, [(axum::http::header::CONTENT_TYPE, JSON_CT)], bytes).into_response()
-                }
+                Ok(bytes) => (status, [(CONTENT_TYPE, JSON_CT)], bytes).into_response(),
                 Err(_) => error_response(StatusCode::BAD_GATEWAY),
             }
         }
@@ -112,10 +116,15 @@ async fn main() {
         .and_then(|p| p.parse().ok())
         .unwrap_or(3000);
 
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .build()
+        .expect("failed to build HTTP client");
+
     let state = Arc::new(AppState {
         token,
         secret,
-        client: reqwest::Client::new(),
+        client,
     });
 
     let app = Router::new()

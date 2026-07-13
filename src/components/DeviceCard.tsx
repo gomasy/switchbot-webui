@@ -1,31 +1,24 @@
 import { useEffect, useState } from "react";
 import { getDeviceStatus, sendCommand } from "../api";
-import { getControls, getDeviceIcon } from "../deviceRegistry";
-import type { Device, InfraredDevice, DeviceStatus } from "../types";
-
-function formatStatus(status: DeviceStatus | null): string {
-  if (!status) return "";
-  const parts: string[] = [];
-  if (status.power) parts.push(status.power === "on" ? "ON" : "OFF");
-  if (typeof status.temperature === "number")
-    parts.push(`${status.temperature}°C`);
-  if (typeof status.humidity === "number") parts.push(`${status.humidity}%`);
-  if (typeof status.battery === "number") parts.push(`🔋${status.battery}%`);
-  if (status.lockState) parts.push(status.lockState === "locked" ? "🔒" : "🔓");
-  if (typeof status.brightness === "number" && !parts.some((p) => p.includes("°")))
-    parts.push(`💡${status.brightness}%`);
-  return parts.join("  ");
-}
+import { getControls, getDeviceIcon, getTypeLabel } from "../deviceRegistry";
+import { formatStatusSummary } from "../status";
+import type { Device, InfraredDevice, DeviceStatus, ToastFn } from "../types";
 
 interface Props {
   device: Device | InfraredDevice;
   isInfrared: boolean;
   externalStatus?: DeviceStatus | null;
   onClick: () => void;
-  onToast: (msg: string, type: "success" | "error") => void;
+  onToast: ToastFn;
 }
 
-export function DeviceCard({ device, isInfrared, externalStatus, onClick, onToast }: Props) {
+export function DeviceCard({
+  device,
+  isInfrared,
+  externalStatus,
+  onClick,
+  onToast,
+}: Props) {
   const [status, setStatus] = useState<DeviceStatus | null>(null);
   const [toggling, setToggling] = useState(false);
 
@@ -46,19 +39,13 @@ export function DeviceCard({ device, isInfrared, externalStatus, onClick, onToas
     e.stopPropagation();
     if (toggling) return;
     setToggling(true);
-    const newPower = status?.power === "on" ? "turnOff" : "turnOn";
+    const command = status?.power === "on" ? "turnOff" : "turnOn";
+    const newPower = command === "turnOn" ? "on" : "off";
     try {
-      const res = await sendCommand(device.deviceId, newPower);
+      const res = await sendCommand(device.deviceId, command);
       if (res.statusCode === 100) {
-        setStatus((prev) =>
-          prev
-            ? { ...prev, power: newPower === "turnOn" ? "on" : "off" }
-            : prev,
-        );
-        onToast(
-          `${device.deviceName}: ${newPower === "turnOn" ? "ON" : "OFF"}`,
-          "success",
-        );
+        setStatus((prev) => (prev ? { ...prev, power: newPower } : prev));
+        onToast(`${device.deviceName}: ${newPower.toUpperCase()}`, "success");
       } else {
         onToast(`エラー: ${res.message}`, "error");
       }
@@ -69,27 +56,18 @@ export function DeviceCard({ device, isInfrared, externalStatus, onClick, onToas
     }
   };
 
-  const typeLabel = isInfrared
-    ? (device as InfraredDevice).remoteType
-    : (device as Device).deviceType;
-  const canToggle =
-    !isInfrared && getControls((device as Device).deviceType).includes("power");
-  const statusText = isInfrared ? typeLabel : formatStatus(status);
+  const typeLabel = getTypeLabel(device);
+  const canToggle = !isInfrared && getControls(typeLabel).includes("power");
+  const statusText = isInfrared ? typeLabel : formatStatusSummary(status);
 
   return (
     <div className="device-card" onClick={onClick}>
-      <div className="device-card-icon">
-        {getDeviceIcon(typeLabel)}
-      </div>
+      <div className="device-card-icon">{getDeviceIcon(typeLabel)}</div>
       <div className="device-card-name">{device.deviceName}</div>
       <div className="device-card-status">{statusText}</div>
       {canToggle && (
         <label className="toggle device-card-toggle" onClick={handleToggle}>
-          <input
-            type="checkbox"
-            checked={status?.power === "on"}
-            readOnly
-          />
+          <input type="checkbox" checked={status?.power === "on"} readOnly />
           <span className="toggle-slider" />
         </label>
       )}

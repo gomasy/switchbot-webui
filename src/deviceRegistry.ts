@@ -1,3 +1,5 @@
+import type { Device, InfraredDevice } from "./types";
+
 export type DeviceCategory =
   | "bot"
   | "plug"
@@ -115,4 +117,9 @@ export function getControls(deviceType: string): ControlKind[] {
 
 export function isHub(deviceType: string): boolean {
   return getCategory(deviceType) === "hub";
+}
+
+/** 物理デバイスは deviceType、赤外線デバイスは remoteType を種別ラベルとして返す */
+export function getTypeLabel(device: Device | InfraredDevice): string {
+  return "remoteType" in device ? device.remoteType : device.deviceType;
 }

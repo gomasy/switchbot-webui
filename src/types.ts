@@ -50,6 +50,9 @@ export interface Scene {
   sceneName: string;
 }
 
+export type ToastType = "success" | "error";
+export type ToastFn = (message: string, type: ToastType) => void;
+
 export interface ApiResponse<T> {
   statusCode: number;
   body: T;

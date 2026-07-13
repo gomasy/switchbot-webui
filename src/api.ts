@@ -1,22 +1,24 @@
 import type { ApiResponse, DeviceListBody, DeviceStatus, Scene } from "./types";
 
-async function apiGet<T>(path: string): Promise<ApiResponse<T>> {
-  const res = await fetch(`/api${path}`);
+async function request<T>(
+  path: string,
+  init?: RequestInit,
+): Promise<ApiResponse<T>> {
+  const res = await fetch(`/api${path}`, init);
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   return res.json();
 }
 
-async function apiPost<T>(
-  path: string,
-  body?: unknown,
-): Promise<ApiResponse<T>> {
-  const res = await fetch(`/api${path}`, {
+function apiGet<T>(path: string) {
+  return request<T>(path);
+}
+
+function apiPost<T>(path: string, body?: unknown) {
+  return request<T>(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
-  return res.json();
 }
 
 export async function getDevices() {
