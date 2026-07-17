@@ -1,3 +1,5 @@
+import { VERSION } from "../version";
+
 interface Props {
   loading: boolean;
   onRefresh: () => void;
@@ -8,7 +10,10 @@ interface Props {
 export function Header({ loading, onRefresh, darkMode, onToggleTheme }: Props) {
   return (
     <header className="header">
-      <span className="header-title">SwitchBot</span>
+      <div className="header-brand">
+        <span className="header-title">SwitchBot</span>
+        <span className="header-version">{VERSION}</span>
+      </div>
       <div className="header-actions">
         <button
           className="btn-icon"

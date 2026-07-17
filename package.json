@@ -5,8 +5,8 @@
   "type": "module",
   "source": "src/index.html",
   "scripts": {
-    "dev": "npm run clean && concurrently -k \"parcel watch\" \"cargo run\"",
-    "build": "npm run clean && parcel build",
+    "dev": "npm run clean && node scripts/gen-version.mjs && concurrently -k \"parcel watch\" \"cargo run\"",
+    "build": "npm run clean && node scripts/gen-version.mjs && parcel build",
     "start": "cargo run --release",
     "clean": "rm -rf dist .parcel-cache"
   },
