@@ -1,6 +1,7 @@
-node_modules/
-dist/
-.parcel-cache/
+.git
+.github
+.parcel-cache
 .env
-.git/
-target/
+node_modules
+dist
+target
