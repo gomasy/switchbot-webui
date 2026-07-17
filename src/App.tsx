@@ -27,6 +27,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [executingScene, setExecutingScene] = useState<string | null>(null);
   const [deviceStatuses, setDeviceStatuses] = useState<Record<string, DeviceStatus>>({});
+  const [refreshSignal, setRefreshSignal] = useState(0);
   const { toasts, addToast } = useToasts();
 
   useEffect(() => {
@@ -40,6 +41,8 @@ export function App() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
+    // マウント済みの DeviceCard にもステータス再取得を促す
+    setRefreshSignal((n) => n + 1);
     try {
       const [devRes, sceneRes] = await Promise.all([getDevices(), getScenes()]);
       if (devRes.statusCode === 100) {
@@ -102,7 +105,7 @@ export function App() {
         ) : tab === "home" ? (
           rooms.length > 0 ? (
             rooms.map((room) => (
-              <div key={room.name} style={{ marginBottom: 24 }}>
+              <div key={room.name} className="room-section">
                 <div className="section-title">{room.name}</div>
                 <div className="device-grid">
                   {room.devices.map(({ device, isInfrared }) => (
@@ -111,6 +114,7 @@ export function App() {
                       device={device}
                       isInfrared={isInfrared}
                       externalStatus={deviceStatuses[device.deviceId]}
+                      refreshSignal={refreshSignal}
                       onClick={() => setSelectedDevice({ device, isInfrared })}
                       onToast={addToast}
                     />

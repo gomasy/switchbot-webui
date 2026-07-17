@@ -803,6 +803,11 @@ input[type="color"]::-webkit-color-swatch {
   font-size: 15px;
 }
 
+/* Room Section */
+.room-section {
+  margin-bottom: 24px;
+}
+
 /* Section Title */
 .section-title {
   font-size: 15px;

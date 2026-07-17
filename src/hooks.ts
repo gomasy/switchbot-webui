@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { sendCommand } from "./api";
 import type { ToastFn, ToastType } from "./types";
 
 export interface Toast {
@@ -20,6 +21,35 @@ export function useToasts() {
   }, []);
 
   return { toasts, addToast };
+}
+
+/**
+ * デバイスへのコマンド送信を共通化するフック。
+ * 多重送信の防止とエラートーストを引き受け、成功時のみ true を返す。
+ */
+export function useSendCommand(deviceId: string, onToast: ToastFn) {
+  const [sending, setSending] = useState(false);
+
+  const send = async (
+    command: string,
+    parameter: unknown = "default",
+    commandType = "command",
+  ): Promise<boolean> => {
+    if (sending) return false;
+    setSending(true);
+    try {
+      const res = await sendCommand(deviceId, command, parameter, commandType);
+      if (res.statusCode === 100) return true;
+      onToast(`エラー: ${res.message}`, "error");
+    } catch {
+      onToast("コマンドの送信に失敗しました", "error");
+    } finally {
+      setSending(false);
+    }
+    return false;
+  };
+
+  return { sending, send };
 }
 
 export function useStoredState<T>(key: string, fallback: T) {

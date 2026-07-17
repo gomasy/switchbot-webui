@@ -10,9 +10,10 @@ export function formatStatusSummary(status: DeviceStatus | null): string {
   if (typeof status.humidity === "number") parts.push(`${status.humidity}%`);
   if (typeof status.battery === "number") parts.push(`🔋${status.battery}%`);
   if (status.lockState) parts.push(status.lockState === "locked" ? "🔒" : "🔓");
+  // 温度表示があるカードは既に情報量が多いので明るさは省略する
   if (
     typeof status.brightness === "number" &&
-    !parts.some((p) => p.includes("°"))
+    typeof status.temperature !== "number"
   )
     parts.push(`💡${status.brightness}%`);
   return parts.join("  ");

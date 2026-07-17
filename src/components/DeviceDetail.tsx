@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
-import { getDeviceStatus, sendCommand } from "../api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { getDeviceStatus } from "../api";
 import { getControls, getDeviceIcon, getTypeLabel } from "../deviceRegistry";
+import { useSendCommand } from "../hooks";
 import { buildStatusItems } from "../status";
 import type { Device, InfraredDevice, DeviceStatus, ToastFn } from "../types";
 import type { SendFn } from "./controls";
@@ -17,11 +18,15 @@ interface Props {
 export function DeviceDetail({ device, isInfrared, onClose, onToast }: Props) {
   const [status, setStatus] = useState<DeviceStatus | null>(null);
   const [loading, setLoading] = useState(!isInfrared);
-  const [sending, setSending] = useState(false);
+  const { sending, send: sendRaw } = useSendCommand(device.deviceId, onToast);
+  const refetchTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     document.body.classList.add("modal-open");
-    return () => document.body.classList.remove("modal-open");
+    return () => {
+      document.body.classList.remove("modal-open");
+      clearTimeout(refetchTimer.current);
+    };
   }, []);
 
   const fetchStatus = useCallback(async () => {
@@ -41,25 +46,11 @@ export function DeviceDetail({ device, isInfrared, onClose, onToast }: Props) {
     fetchStatus();
   }, [fetchStatus]);
 
-  const send: SendFn = async (
-    command,
-    parameter = "default",
-    commandType = "command",
-  ) => {
-    if (sending) return;
-    setSending(true);
-    try {
-      const res = await sendCommand(device.deviceId, command, parameter, commandType);
-      if (res.statusCode === 100) {
-        onToast(`${device.deviceName}: ${command}`, "success");
-        if (!isInfrared) setTimeout(fetchStatus, 1000);
-      } else {
-        onToast(`エラー: ${res.message}`, "error");
-      }
-    } catch {
-      onToast("コマンドの送信に失敗しました", "error");
-    } finally {
-      setSending(false);
+  const send: SendFn = async (command, parameter, commandType) => {
+    if (await sendRaw(command, parameter, commandType)) {
+      onToast(`${device.deviceName}: ${command}`, "success");
+      // 反映に少し時間がかかるため、1 秒待ってからステータスを取り直す
+      if (!isInfrared) refetchTimer.current = setTimeout(fetchStatus, 1000);
     }
   };
 

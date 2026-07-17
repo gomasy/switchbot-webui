@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { getDeviceStatus, sendCommand } from "../api";
+import { getDeviceStatus } from "../api";
 import { getControls, getDeviceIcon, getTypeLabel } from "../deviceRegistry";
+import { useSendCommand } from "../hooks";
 import { formatStatusSummary } from "../status";
 import type { Device, InfraredDevice, DeviceStatus, ToastFn } from "../types";
 
@@ -8,6 +9,8 @@ interface Props {
   device: Device | InfraredDevice;
   isInfrared: boolean;
   externalStatus?: DeviceStatus | null;
+  /** 値が変わるたびにステータスを再取得する (ヘッダーの更新ボタン連動) */
+  refreshSignal: number;
   onClick: () => void;
   onToast: ToastFn;
 }
@@ -16,11 +19,12 @@ export function DeviceCard({
   device,
   isInfrared,
   externalStatus,
+  refreshSignal,
   onClick,
   onToast,
 }: Props) {
   const [status, setStatus] = useState<DeviceStatus | null>(null);
-  const [toggling, setToggling] = useState(false);
+  const { send } = useSendCommand(device.deviceId, onToast);
 
   useEffect(() => {
     if (isInfrared) return;
@@ -29,7 +33,7 @@ export function DeviceCard({
         if (res.statusCode === 100) setStatus(res.body);
       })
       .catch(() => {});
-  }, [device.deviceId, isInfrared]);
+  }, [device.deviceId, isInfrared, refreshSignal]);
 
   useEffect(() => {
     if (externalStatus) setStatus(externalStatus);
@@ -37,22 +41,11 @@ export function DeviceCard({
 
   const handleToggle = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (toggling) return;
-    setToggling(true);
     const command = status?.power === "on" ? "turnOff" : "turnOn";
     const newPower = command === "turnOn" ? "on" : "off";
-    try {
-      const res = await sendCommand(device.deviceId, command);
-      if (res.statusCode === 100) {
-        setStatus((prev) => (prev ? { ...prev, power: newPower } : prev));
-        onToast(`${device.deviceName}: ${newPower.toUpperCase()}`, "success");
-      } else {
-        onToast(`エラー: ${res.message}`, "error");
-      }
-    } catch {
-      onToast("コマンドの送信に失敗しました", "error");
-    } finally {
-      setToggling(false);
+    if (await send(command)) {
+      setStatus((prev) => (prev ? { ...prev, power: newPower } : prev));
+      onToast(`${device.deviceName}: ${newPower.toUpperCase()}`, "success");
     }
   };
 

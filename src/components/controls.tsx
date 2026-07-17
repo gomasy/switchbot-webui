@@ -58,6 +58,18 @@ export function ActionButton({
   );
 }
 
+/** range input の値を変更しうるキー (フォーカス移動の Tab などではコミットしない) */
+const SLIDER_KEYS = new Set([
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowUp",
+  "ArrowDown",
+  "Home",
+  "End",
+  "PageUp",
+  "PageDown",
+]);
+
 export function Slider({
   label,
   valueLabel,
@@ -90,8 +102,10 @@ export function Slider({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        onMouseUp={onCommit}
-        onTouchEnd={onCommit}
+        onPointerUp={onCommit}
+        onKeyUp={(e) => {
+          if (SLIDER_KEYS.has(e.key)) onCommit();
+        }}
       />
     </div>
   );

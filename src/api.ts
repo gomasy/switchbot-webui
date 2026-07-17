@@ -9,11 +9,7 @@ async function request<T>(
   return res.json();
 }
 
-function apiGet<T>(path: string) {
-  return request<T>(path);
-}
-
-function apiPost<T>(path: string, body?: unknown) {
+function post<T>(path: string, body?: unknown) {
   return request<T>(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -21,31 +17,31 @@ function apiPost<T>(path: string, body?: unknown) {
   });
 }
 
-export async function getDevices() {
-  return apiGet<DeviceListBody>("/v1.1/devices");
+export function getDevices() {
+  return request<DeviceListBody>("/v1.1/devices");
 }
 
-export async function getDeviceStatus(deviceId: string) {
-  return apiGet<DeviceStatus>(`/v1.1/devices/${deviceId}/status`);
+export function getDeviceStatus(deviceId: string) {
+  return request<DeviceStatus>(`/v1.1/devices/${deviceId}/status`);
 }
 
-export async function sendCommand(
+export function sendCommand(
   deviceId: string,
   command: string,
   parameter: unknown = "default",
   commandType = "command",
 ) {
-  return apiPost(`/v1.1/devices/${deviceId}/commands`, {
+  return post(`/v1.1/devices/${deviceId}/commands`, {
     command,
     parameter,
     commandType,
   });
 }
 
-export async function getScenes() {
-  return apiGet<Scene[]>("/v1.1/scenes");
+export function getScenes() {
+  return request<Scene[]>("/v1.1/scenes");
 }
 
-export async function executeScene(sceneId: string) {
-  return apiPost(`/v1.1/scenes/${sceneId}/execute`);
+export function executeScene(sceneId: string) {
+  return post(`/v1.1/scenes/${sceneId}/execute`);
 }
