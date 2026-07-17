@@ -1,6 +1,6 @@
 // Generate src/version.ts from the package version, git short SHA and commit date.
 // In environments without a .git directory (e.g. the Docker frontend stage), the
-// GIT_SHA / BUILD_DATE environment variables are used as a fallback.
+// GIT_HASH / BUILD_DATE environment variables are used as a fallback.
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 
@@ -16,13 +16,13 @@ function git(cmd) {
   }
 }
 
-const sha = process.env.GIT_SHA || git("git rev-parse --short HEAD") || "unknown";
+const sha = process.env.GIT_HASH || git("git rev-parse --short HEAD") || "unknown";
 const date =
-  process.env.BUILD_DATE || git("git log -1 --format=%cd --date=short") || "";
+  process.env.BUILD_DATE || git("git log -1 --format=%cs") || "";
 
 if (sha === "unknown") {
   console.warn(
-    "gen-version: git SHA unavailable (no .git and no GIT_SHA env); using 'unknown'",
+    "gen-version: git SHA unavailable (no .git and no GIT_HASH env); using 'unknown'",
   );
 }
 

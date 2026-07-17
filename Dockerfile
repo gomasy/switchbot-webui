@@ -1,7 +1,7 @@
 FROM node:24.18.0-alpine AS frontend
-ARG GIT_SHA=unknown
+ARG GIT_HASH=unknown
 ARG BUILD_DATE=
-ENV GIT_SHA=$GIT_SHA BUILD_DATE=$BUILD_DATE
+ENV GIT_HASH=$GIT_HASH BUILD_DATE=$BUILD_DATE
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
