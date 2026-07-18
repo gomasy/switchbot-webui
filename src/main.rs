@@ -17,14 +17,31 @@ use sha2::{Digest, Sha256};
 use std::{
     env,
     net::SocketAddr,
+    process,
     sync::Arc,
     time::{Duration, SystemTime},
 };
 use tower_http::services::{ServeDir, ServeFile};
 
+const VERSION: &str = concat!(
+    "v",
+    env!("PKG_VERSION"),
+    "-",
+    env!("GIT_HASH"),
+    " (",
+    env!("BUILD_DATE"),
+    ")",
+);
+
 const SWITCHBOT_API: &str = "https://api.switch-bot.com";
 const JSON_CT: &str = "application/json";
 const MAX_BODY_BYTES: usize = 1024 * 1024;
+
+/// 起動に必須の設定が欠けている場合にエラーを表示して終了する
+fn die(msg: impl std::fmt::Display) -> ! {
+    eprintln!("Error: {msg}");
+    process::exit(1);
+}
 
 struct AppState {
     token: HeaderValue,
@@ -167,10 +184,14 @@ async fn api_proxy(State(state): State<Arc<AppState>>, req: Request<Body>) -> Re
 
 #[tokio::main]
 async fn main() {
-    let _ = dotenvy::dotenv();
-    let token = env::var("SWITCHBOT_TOKEN").expect("SWITCHBOT_TOKEN must be set");
-    let token = HeaderValue::from_str(&token).expect("SWITCHBOT_TOKEN contains invalid characters");
-    let secret = env::var("SWITCHBOT_SECRET").expect("SWITCHBOT_SECRET must be set");
+    // .env があれば読み込む (無くてもエラーにしない)
+    let dotenv_loaded = dotenvy::dotenv().is_ok();
+
+    let token = env::var("SWITCHBOT_TOKEN").unwrap_or_else(|_| die("SWITCHBOT_TOKEN must be set"));
+    let token = HeaderValue::from_str(&token)
+        .unwrap_or_else(|_| die("SWITCHBOT_TOKEN contains invalid characters"));
+    let secret =
+        env::var("SWITCHBOT_SECRET").unwrap_or_else(|_| die("SWITCHBOT_SECRET must be set"));
     let port: u16 = env::var("PORT")
         .ok()
         .and_then(|p| p.parse().ok())
@@ -179,14 +200,12 @@ async fn main() {
         .ok()
         .filter(|t| !t.is_empty())
         .map(|t| hash_token(&t));
-    if auth_hash.is_none() {
-        eprintln!("warning: AUTH_TOKEN is not set; the UI is accessible without authentication");
-    }
+    let auth_enabled = auth_hash.is_some();
 
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(30))
         .build()
-        .expect("failed to build HTTP client");
+        .unwrap_or_else(|e| die(format!("failed to build HTTP client: {e}")));
 
     let state = Arc::new(AppState {
         token,
@@ -201,9 +220,25 @@ async fn main() {
         .nest_service("/api/", axum::routing::any(api_proxy).with_state(state))
         .fallback_service(ServeDir::new("dist").fallback(ServeFile::new("dist/index.html")));
 
+    println!("══════════════════════════════════════════");
+    println!("  SwitchBot WebUI {VERSION}");
+    if dotenv_loaded {
+        println!("  Config   → loaded .env");
+    }
+    println!("  Web UI   → http://localhost:{port}");
+    if auth_enabled {
+        println!("  Auth     → AUTH_TOKEN is set");
+    } else {
+        println!("  Auth     → disabled (set AUTH_TOKEN to enable)");
+    }
+    println!("══════════════════════════════════════════");
+
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     let listener = tokio::net::TcpListener::bind(addr)
         .await
-        .expect("failed to bind port");
-    axum::serve(listener, app).await.expect("server error");
+        .unwrap_or_else(|e| die(format!("failed to bind {addr}: {e}")));
+    println!("Listening on {addr}");
+    axum::serve(listener, app)
+        .await
+        .unwrap_or_else(|e| die(format!("server error: {e}")));
 }

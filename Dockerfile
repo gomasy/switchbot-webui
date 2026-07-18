@@ -11,10 +11,14 @@ COPY tsconfig.json ./
 RUN npm run build
 
 FROM rust:1-alpine AS backend
+ARG GIT_HASH=unknown
+ARG BUILD_DATE=
+ENV GIT_HASH=$GIT_HASH BUILD_DATE=$BUILD_DATE
 RUN apk add --no-cache musl-dev pkgconfig openssl-dev openssl-libs-static ca-certificates
 WORKDIR /app
-COPY Cargo.toml Cargo.lock ./
+COPY Cargo.toml Cargo.lock build.rs ./
 RUN mkdir src && echo 'fn main() {}' > src/main.rs && cargo build --release && rm src/main.rs
+COPY package.json ./
 COPY src/main.rs src/main.rs
 RUN touch src/main.rs && cargo build --release
 
