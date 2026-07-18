@@ -52,11 +52,14 @@ export function DeviceCard({
   const typeLabel = getTypeLabel(device);
   const canToggle = !isInfrared && getControls(typeLabel).includes("power");
   const statusText = isInfrared ? typeLabel : formatStatusSummary(status);
+  const battery = status?.battery;
+  const lowBattery = typeof battery === "number" && battery <= 20;
 
   return (
     <div className="device-card" onClick={onClick}>
       <div className="device-card-icon">{getDeviceIcon(typeLabel)}</div>
       <div className="device-card-name">{device.deviceName}</div>
+      {lowBattery && <span className="battery-badge">🪫 {battery}%</span>}
       <div className="device-card-status">{statusText}</div>
       {canToggle && (
         <label className="toggle device-card-toggle" onClick={handleToggle}>

@@ -205,6 +205,16 @@ body {
   margin-top: auto;
 }
 
+.battery-badge {
+  align-self: flex-start;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 15%, transparent);
+  border-radius: 8px;
+  padding: 2px 8px;
+}
+
 .device-card-toggle {
   position: absolute;
   top: 12px;
@@ -801,6 +811,61 @@ input[type="color"]::-webkit-color-swatch {
 
 .empty-state-text {
   font-size: 15px;
+}
+
+/* Login Screen */
+.login-screen {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.login-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 32px 24px;
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: center;
+}
+
+.login-icon {
+  font-size: 40px;
+}
+
+.login-title {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.login-description {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.login-input {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  outline: none;
+}
+
+.login-input:focus {
+  border-color: var(--primary);
+}
+
+.login-error {
+  font-size: 13px;
+  color: var(--primary);
 }
 
 /* Room Section */

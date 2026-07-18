@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getDeviceStatus } from "../api";
 import { getControls, getDeviceIcon, getTypeLabel } from "../deviceRegistry";
-import { useSendCommand } from "../hooks";
+import { useModalClose, useSendCommand } from "../hooks";
 import { buildStatusItems } from "../status";
 import type { Device, InfraredDevice, DeviceStatus, ToastFn } from "../types";
 import type { SendFn } from "./controls";
@@ -21,13 +21,8 @@ export function DeviceDetail({ device, isInfrared, onClose, onToast }: Props) {
   const { sending, send: sendRaw } = useSendCommand(device.deviceId, onToast);
   const refetchTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  useEffect(() => {
-    document.body.classList.add("modal-open");
-    return () => {
-      document.body.classList.remove("modal-open");
-      clearTimeout(refetchTimer.current);
-    };
-  }, []);
+  useModalClose(() => onClose(status));
+  useEffect(() => () => clearTimeout(refetchTimer.current), []);
 
   const fetchStatus = useCallback(async () => {
     if (isInfrared) return;

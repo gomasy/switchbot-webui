@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { sendCommand } from "./api";
 import type { ToastFn, ToastType } from "./types";
 
@@ -21,6 +21,39 @@ export function useToasts() {
   }, []);
 
   return { toasts, addToast };
+}
+
+/**
+ * モーダルの表示中制御をまとめたフック。
+ * body スクロールを固定し、履歴を 1 つ積んでブラウザバック/Esc で close を呼ぶ。
+ */
+export function useModalClose(close: () => void) {
+  // リスナーは初回マウント時のものが使われ続けるため、最新の close を ref で参照する
+  const closeRef = useRef(close);
+  closeRef.current = close;
+
+  useEffect(() => {
+    document.body.classList.add("modal-open");
+    // スマホの「戻る」やブラウザバックで閉じられるよう履歴を 1 つ積む
+    history.pushState({ modal: true }, "");
+    let popped = false;
+    const onPop = () => {
+      popped = true;
+      closeRef.current();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeRef.current();
+    };
+    window.addEventListener("popstate", onPop);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.classList.remove("modal-open");
+      window.removeEventListener("popstate", onPop);
+      window.removeEventListener("keydown", onKey);
+      // ✕ や Esc で閉じた場合は積んだ履歴を消費して整合を保つ
+      if (!popped) history.back();
+    };
+  }, []);
 }
 
 /**

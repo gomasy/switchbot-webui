@@ -10,6 +10,9 @@ A web-based control panel using the SwitchBot API v1.1.
 - Scene execution
 - Room-based device grouping via Hub association
 - Dark mode / light mode toggle
+- Installable as a PWA (add to home screen)
+- Low battery warning on device cards
+- Optional access authentication via `AUTH_TOKEN`
 
 ## Setup
 
@@ -35,6 +38,11 @@ SWITCHBOT_SECRET=your_secret
 
 The server listens on port 3000 by default. Set `PORT` to change it.
 
+To require authentication for the UI, set `AUTH_TOKEN` to a long random string.
+When set, the web UI prompts for this token on first access and stores a session
+cookie for one year. When unset, the UI is accessible without authentication
+(a warning is printed at startup).
+
 ### Development
 
 ```bash
@@ -56,6 +64,7 @@ npm start
 docker run -d -p 3000:3000 \
   -e SWITCHBOT_TOKEN=your_token \
   -e SWITCHBOT_SECRET=your_secret \
+  -e AUTH_TOKEN=choose_a_long_random_string \
   ghcr.io/gomasy/switchbot-webui
 ```
 

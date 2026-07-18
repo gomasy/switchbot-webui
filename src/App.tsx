@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { getDevices, getScenes, executeScene } from "./api";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getDevices, getScenes, executeScene, UnauthorizedError } from "./api";
 import { useToasts } from "./hooks";
 import { groupRooms, type RoomDevice } from "./rooms";
 import type { Device, DeviceStatus, InfraredDevice, Scene } from "./types";
 import { Header } from "./components/Header";
 import { DeviceCard } from "./components/DeviceCard";
 import { DeviceDetail } from "./components/DeviceDetail";
+import { LoginScreen } from "./components/LoginScreen";
 import { SceneList } from "./components/SceneList";
 
 type Tab = "home" | "scenes";
@@ -28,6 +29,7 @@ export function App() {
   const [executingScene, setExecutingScene] = useState<string | null>(null);
   const [deviceStatuses, setDeviceStatuses] = useState<Record<string, DeviceStatus>>({});
   const [refreshSignal, setRefreshSignal] = useState(0);
+  const [needsLogin, setNeedsLogin] = useState(false);
   const { toasts, addToast } = useToasts();
 
   useEffect(() => {
@@ -38,9 +40,12 @@ export function App() {
 
   const rooms = useMemo(() => groupRooms(devices, irDevices), [devices, irDevices]);
 
+  const lastFetch = useRef(0);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
+    lastFetch.current = Date.now();
     // マウント済みの DeviceCard にもステータス再取得を促す
     setRefreshSignal((n) => n + 1);
     try {
@@ -55,7 +60,11 @@ export function App() {
         setScenes(sceneRes.body || []);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "接続に失敗しました");
+      if (e instanceof UnauthorizedError) {
+        setNeedsLogin(true);
+      } else {
+        setError(e instanceof Error ? e.message : "接続に失敗しました");
+      }
     } finally {
       setLoading(false);
     }
@@ -64,6 +73,21 @@ export function App() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // タブに戻ってきたとき、前回取得から 1 分以上経っていれば自動で更新する
+  useEffect(() => {
+    if (needsLogin) return;
+    const onVisible = () => {
+      if (
+        document.visibilityState === "visible" &&
+        Date.now() - lastFetch.current > 60_000
+      ) {
+        fetchData();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [fetchData, needsLogin]);
 
   const handleExecuteScene = async (sceneId: string) => {
     if (executingScene) return;
@@ -75,12 +99,27 @@ export function App() {
       } else {
         addToast(`エラー: ${res.message}`, "error");
       }
-    } catch {
-      addToast("シーンの実行に失敗しました", "error");
+    } catch (e) {
+      if (e instanceof UnauthorizedError) {
+        setNeedsLogin(true);
+      } else {
+        addToast("シーンの実行に失敗しました", "error");
+      }
     } finally {
       setExecutingScene(null);
     }
   };
+
+  if (needsLogin) {
+    return (
+      <LoginScreen
+        onSuccess={() => {
+          setNeedsLogin(false);
+          fetchData();
+        }}
+      />
+    );
+  }
 
   return (
     <>
