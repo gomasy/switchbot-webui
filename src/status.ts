@@ -1,6 +1,6 @@
+import { t } from "./i18n";
 import type { DeviceStatus } from "./types";
 
-/** デバイスカードに表示する 1 行サマリ */
 export function formatStatusSummary(status: DeviceStatus | null): string {
   if (!status) return "";
   const parts: string[] = [];
@@ -10,7 +10,6 @@ export function formatStatusSummary(status: DeviceStatus | null): string {
   if (typeof status.humidity === "number") parts.push(`${status.humidity}%`);
   if (typeof status.battery === "number") parts.push(`🔋${status.battery}%`);
   if (status.lockState) parts.push(status.lockState === "locked" ? "🔒" : "🔓");
-  // 温度表示があるカードは既に情報量が多いので明るさは省略する
   if (
     typeof status.brightness === "number" &&
     typeof status.temperature !== "number"
@@ -24,57 +23,54 @@ export interface StatusItem {
   value: string;
 }
 
-/** 詳細モーダルのステータスグリッドに表示する項目一覧 */
 export function buildStatusItems(status: DeviceStatus | null): StatusItem[] {
   if (!status) return [];
   const items: StatusItem[] = [];
   if (typeof status.temperature === "number")
-    items.push({ label: "温度", value: `${status.temperature}°C` });
+    items.push({ label: t("status.temperature"), value: `${status.temperature}°C` });
   if (typeof status.humidity === "number")
-    items.push({ label: "湿度", value: `${status.humidity}%` });
+    items.push({ label: t("status.humidity"), value: `${status.humidity}%` });
   if (typeof status.battery === "number")
-    items.push({ label: "バッテリー", value: `${status.battery}%` });
+    items.push({ label: t("status.battery"), value: `${status.battery}%` });
   if (status.version)
-    items.push({ label: "ファームウェア", value: status.version });
+    items.push({ label: t("status.firmware"), value: status.version });
   if (typeof status.voltage === "number")
-    items.push({ label: "電圧", value: `${status.voltage}V` });
+    items.push({ label: t("status.voltage"), value: `${status.voltage}V` });
   if (typeof status.electricCurrent === "number")
-    items.push({ label: "電流", value: `${status.electricCurrent}A` });
+    items.push({ label: t("status.current"), value: `${status.electricCurrent}A` });
   if (typeof status.electricityOfDay === "number")
-    items.push({ label: "本日の電力", value: `${status.electricityOfDay}W` });
+    items.push({ label: t("status.powerToday"), value: `${status.electricityOfDay}W` });
   if (status.lockState)
     items.push({
-      label: "ロック",
-      value: status.lockState === "locked" ? "施錠" : "解錠",
+      label: t("status.lock"),
+      value: status.lockState === "locked" ? t("status.locked") : t("status.unlocked"),
     });
   if (status.doorState)
     items.push({
-      label: "ドア",
-      value: status.doorState === "closed" ? "閉" : "開",
+      label: t("status.door"),
+      value: status.doorState === "closed" ? t("status.closed") : t("status.open"),
     });
   if (status.moveDetected !== undefined)
     items.push({
-      label: "動体検知",
-      value: status.moveDetected ? "検知" : "なし",
+      label: t("status.motionDetection"),
+      value: status.moveDetected ? t("status.detected") : t("status.none"),
     });
   if (status.openState)
     items.push({
-      label: "開閉",
-      value: status.openState === "close" ? "閉" : "開",
+      label: t("status.openClose"),
+      value: status.openState === "close" ? t("status.closed") : t("status.open"),
     });
   if (status.workingStatus)
-    items.push({ label: "動作状態", value: status.workingStatus });
+    items.push({ label: t("status.workingStatus"), value: status.workingStatus });
   return items;
 }
 
-/** SwitchBot API の "r:g:b" 形式を "#rrggbb" に変換 */
 export function deviceColorToHex(color: string): string {
   const [r, g, b] = color.split(":").map(Number);
   const hex = (n: number) => n.toString(16).padStart(2, "0");
   return `#${hex(r)}${hex(g)}${hex(b)}`;
 }
 
-/** "#rrggbb" を SwitchBot API の "r:g:b" 形式に変換 */
 export function hexToDeviceColor(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);

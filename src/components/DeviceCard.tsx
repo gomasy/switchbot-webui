@@ -9,7 +9,7 @@ interface Props {
   device: Device | InfraredDevice;
   isInfrared: boolean;
   externalStatus?: DeviceStatus | null;
-  /** 値が変わるたびにステータスを再取得する (ヘッダーの更新ボタン連動) */
+  /** Triggers a status re-fetch whenever its value changes (linked to the header refresh button). */
   refreshSignal: number;
   onClick: () => void;
   onToast: ToastFn;

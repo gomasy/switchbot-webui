@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import { VERSION } from "../version";
 
 interface Props {
@@ -18,7 +19,7 @@ export function Header({ loading, onRefresh, darkMode, onToggleTheme }: Props) {
         <button
           className="btn-icon"
           onClick={onToggleTheme}
-          aria-label="テーマ切替"
+          aria-label={t("header.toggleTheme")}
         >
           {darkMode ? "☀️" : "🌙"}
         </button>
@@ -26,7 +27,7 @@ export function Header({ loading, onRefresh, darkMode, onToggleTheme }: Props) {
           className={`btn-icon ${loading ? "spinning" : ""}`}
           onClick={onRefresh}
           disabled={loading}
-          aria-label="更新"
+          aria-label={t("header.refresh")}
         >
           ↻
         </button>

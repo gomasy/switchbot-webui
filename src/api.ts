@@ -1,9 +1,9 @@
+import { t } from "./i18n";
 import type { ApiResponse, DeviceListBody, DeviceStatus, Scene } from "./types";
 
-/** サーバーの AUTH_TOKEN 認証に失敗した (ログインが必要な) ことを表す */
 export class UnauthorizedError extends Error {
   constructor() {
-    super("認証が必要です");
+    super(t("api.unauthorized"));
   }
 }
 
@@ -12,7 +12,7 @@ async function request<T>(
   init?: RequestInit,
 ): Promise<ApiResponse<T>> {
   const res = await fetch(`/api${path}`, init);
-  // WWW-Authenticate 付き 401 はプロキシ自体の認証拒否 (上流 API の 401 と区別する)
+  // WWW-Authenticate on 401 distinguishes our proxy auth rejection from upstream API 401s
   if (res.status === 401 && res.headers.has("WWW-Authenticate")) {
     throw new UnauthorizedError();
   }
@@ -20,7 +20,7 @@ async function request<T>(
   return res.json();
 }
 
-/** アクセストークンを送信して認証 Cookie を取得する。成功時 true */
+/** Submit an access token and obtain an auth cookie. Returns true on success. */
 export async function login(token: string): Promise<boolean> {
   const res = await fetch("/auth/login", { method: "POST", body: token });
   return res.ok;

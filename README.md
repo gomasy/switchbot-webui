@@ -9,6 +9,7 @@ A web-based control panel using the SwitchBot API v1.1.
 - Custom button support for "Others" type remotes
 - Scene execution
 - Room-based device grouping via Hub association
+- Internationalization (i18n) — auto-detects browser language; add a JSON file to support a new language
 - Dark mode / light mode toggle
 - Installable as a PWA (add to home screen)
 - Low battery warning on device cards
@@ -69,6 +70,13 @@ docker run -d -p 3000:3000 \
 ```
 
 Multi-architecture images (amd64 / arm64) are automatically built via GitHub Actions.
+
+## Adding a Language
+
+Drop a JSON file named `<code>.json` (e.g. `fr.json`) into the `locales/` directory
+with the same keys as `en.json`. The build script picks it up automatically — no
+source changes required. The UI selects the best match from `navigator.language`
+at load time and falls back to English.
 
 ## Tech Stack
 

@@ -1,4 +1,5 @@
 import { isHub } from "./deviceRegistry";
+import { t } from "./i18n";
 import type { Device, InfraredDevice } from "./types";
 
 export interface RoomDevice {
@@ -11,7 +12,7 @@ export interface Room {
   devices: RoomDevice[];
 }
 
-const FALLBACK_ROOM = "その他";
+const FALLBACK_ROOM = t("room.other");
 
 function roomName(hubName: string): string {
   return (
@@ -21,9 +22,9 @@ function roomName(hubName: string): string {
 }
 
 /**
- * デバイスをハブ(=部屋)ごとにグルーピングする。
- * hubDeviceId を持たないデバイスは、名前がハブの部屋名で始まるかで推定し、
- * どこにも属さないものは「その他」にまとめる。
+ * Group devices by hub (= room).
+ * Devices without hubDeviceId are matched by name prefix against hub room names;
+ * unmatched devices go into the fallback room.
  */
 export function groupRooms(
   devices: Device[],

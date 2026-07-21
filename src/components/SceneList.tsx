@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import type { Scene } from "../types";
 
 interface Props {
@@ -9,7 +10,7 @@ interface Props {
 export function SceneList({ scenes, executingScene, onExecute }: Props) {
   return (
     <>
-      <div className="section-title">シーン</div>
+      <div className="section-title">{t("scene.title")}</div>
       {scenes.length > 0 ? (
         <div className="scene-list">
           {scenes.map((s) => (
@@ -23,7 +24,7 @@ export function SceneList({ scenes, executingScene, onExecute }: Props) {
                 onClick={() => onExecute(s.sceneId)}
                 disabled={executingScene === s.sceneId}
               >
-                {executingScene === s.sceneId ? "実行中..." : "実行"}
+                {executingScene === s.sceneId ? t("scene.executing") : t("scene.execute")}
               </button>
             </div>
           ))}
@@ -31,7 +32,7 @@ export function SceneList({ scenes, executingScene, onExecute }: Props) {
       ) : (
         <div className="empty-state">
           <div className="empty-state-icon">⚡</div>
-          <div className="empty-state-text">シーンが見つかりません</div>
+          <div className="empty-state-text">{t("scene.notFound")}</div>
         </div>
       )}
     </>

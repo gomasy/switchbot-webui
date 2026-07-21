@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ControlKind } from "../deviceRegistry";
+import { t } from "../i18n";
 import { deviceColorToHex, hexToDeviceColor } from "../status";
 import type { DeviceStatus } from "../types";
 import {
@@ -62,7 +63,7 @@ export function PhysicalControls({ controls, status, send, sending }: Props) {
       {controls.includes("brightness") && (
         <ControlSection>
           <Slider
-            label="明るさ"
+            label={t("control.brightness")}
             valueLabel={`${brightness}%`}
             min={0}
             max={100}
@@ -76,7 +77,7 @@ export function PhysicalControls({ controls, status, send, sending }: Props) {
       {controls.includes("color") && (
         <ControlSection>
           <div className="control-row">
-            <span className="control-label">カラー</span>
+            <span className="control-label">{t("control.color")}</span>
             <input
               type="color"
               value={color}
@@ -90,7 +91,7 @@ export function PhysicalControls({ controls, status, send, sending }: Props) {
       {controls.includes("colorTemp") && (
         <ControlSection>
           <Slider
-            label="色温度"
+            label={t("control.colorTemperature")}
             valueLabel={`${colorTemp}K`}
             min={2700}
             max={6500}
@@ -103,9 +104,9 @@ export function PhysicalControls({ controls, status, send, sending }: Props) {
       )}
 
       {controls.includes("position") && (
-        <ControlSection title="カーテン操作">
+        <ControlSection title={t("control.curtain")}>
           <Slider
-            label="位置"
+            label={t("control.position")}
             valueLabel={`${position}%`}
             min={0}
             max={100}
@@ -115,41 +116,41 @@ export function PhysicalControls({ controls, status, send, sending }: Props) {
           />
           <ActionRow>
             <ActionButton primary onClick={() => send("turnOn")} disabled={sending}>
-              開く
+              {t("control.open")}
             </ActionButton>
             <ActionButton onClick={() => send("turnOff")} disabled={sending}>
-              閉じる
+              {t("control.close")}
             </ActionButton>
           </ActionRow>
         </ControlSection>
       )}
 
       {controls.includes("lock") && (
-        <ControlSection title="ロック操作">
+        <ControlSection title={t("control.lockControl")}>
           <ActionRow>
             <ActionButton primary onClick={() => send("lock")} disabled={sending}>
-              施錠
+              {t("control.lock")}
             </ActionButton>
             <ActionButton onClick={() => send("unlock")} disabled={sending}>
-              解錠
+              {t("control.unlock")}
             </ActionButton>
           </ActionRow>
         </ControlSection>
       )}
 
       {controls.includes("vacuum") && (
-        <ControlSection title="ロボット掃除機">
+        <ControlSection title={t("control.vacuum")}>
           <ActionRow>
             <ActionButton primary onClick={() => send("start")} disabled={sending}>
-              開始
+              {t("control.start")}
             </ActionButton>
             <ActionButton onClick={() => send("stop")} disabled={sending}>
-              停止
+              {t("control.stop")}
             </ActionButton>
           </ActionRow>
           <ActionRow style={{ marginTop: 8 }}>
             <ActionButton onClick={() => send("dock")} disabled={sending}>
-              充電に戻る
+              {t("control.dock")}
             </ActionButton>
           </ActionRow>
         </ControlSection>
@@ -158,7 +159,7 @@ export function PhysicalControls({ controls, status, send, sending }: Props) {
       {controls.includes("humidity") && (
         <ControlSection>
           <Slider
-            label="加湿量"
+            label={t("control.humidification")}
             valueLabel={`${humidity}%`}
             min={0}
             max={100}

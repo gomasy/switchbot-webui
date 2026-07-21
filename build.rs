@@ -1,15 +1,15 @@
 use std::process::Command;
 
 fn main() {
-    // Docker ビルドなど .git が無い環境では、ホスト側で求めた値を
-    // ARG→ENV 経由で受け取る。環境変数が無ければ git にフォールバックする。
+    // In environments without .git (e.g. Docker builds), accept values via
+    // ARG→ENV from the host. Falls back to git when env vars are absent.
     let hash = env_or_git("GIT_HASH", &["rev-parse", "--short", "HEAD"]);
     println!("cargo:rustc-env=GIT_HASH={hash}");
 
     let date = env_or_git("BUILD_DATE", &["log", "-1", "--format=%cs"]);
     println!("cargo:rustc-env=BUILD_DATE={date}");
 
-    // バージョンは package.json に一元化されているため、そこから読み取る
+    // Version is sourced from package.json (single source of truth)
     let version = package_version().unwrap_or_else(|| "unknown".to_string());
     println!("cargo:rustc-env=PKG_VERSION={version}");
 

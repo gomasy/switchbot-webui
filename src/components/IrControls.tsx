@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useStoredState } from "../hooks";
+import { t } from "../i18n";
 import type { InfraredDevice } from "../types";
 import {
   ActionButton,
@@ -19,24 +20,24 @@ interface Props {
 }
 
 const AC_MODES = [
-  { value: 1, label: "自動" },
-  { value: 2, label: "冷房" },
-  { value: 3, label: "除湿" },
-  { value: 4, label: "送風" },
-  { value: 5, label: "暖房" },
+  { value: 1, label: t("ac.auto") },
+  { value: 2, label: t("ac.cool") },
+  { value: 3, label: t("ac.dry") },
+  { value: 4, label: t("ac.fan") },
+  { value: 5, label: t("ac.heat") },
 ] as const;
 
 const AC_FAN_SPEEDS = [
-  { value: 1, label: "自動" },
-  { value: 2, label: "弱" },
-  { value: 3, label: "中" },
-  { value: 4, label: "強" },
+  { value: 1, label: t("fan.auto") },
+  { value: 2, label: t("fan.low") },
+  { value: 3, label: t("fan.medium") },
+  { value: 4, label: t("fan.high") },
 ] as const;
 
 const IR_FAN_SPEEDS = [
-  { value: "lowSpeed", label: "弱" },
-  { value: "middleSpeed", label: "中" },
-  { value: "highSpeed", label: "強" },
+  { value: "lowSpeed", label: t("fan.low") },
+  { value: "middleSpeed", label: t("fan.medium") },
+  { value: "highSpeed", label: t("fan.high") },
 ] as const;
 
 const TV_CHANNELS = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -65,7 +66,6 @@ function AcControls({ device, send, sending }: Props) {
       `${next.temp},${next.mode},${next.fan},${next.power ? "on" : "off"}`,
     );
   };
-  // 電源 OFF のままモードなどを変えた場合は保存のみ行い、次回 ON 時に反映する
   const updateAndSendIfOn = (patch: Partial<AcState>) => {
     const next = { ...ac, ...patch };
     if (ac.power) sendAc(next);
@@ -81,7 +81,7 @@ function AcControls({ device, send, sending }: Props) {
       />
       <ControlSection>
         <Slider
-          label="温度"
+          label={t("control.temperature")}
           valueLabel={`${ac.temp}°C`}
           min={16}
           max={30}
@@ -92,7 +92,7 @@ function AcControls({ device, send, sending }: Props) {
           }}
         />
       </ControlSection>
-      <ControlSection title="モード">
+      <ControlSection title={t("control.mode")}>
         <SegmentControl
           options={AC_MODES}
           value={ac.mode}
@@ -100,7 +100,7 @@ function AcControls({ device, send, sending }: Props) {
           disabled={sending}
         />
       </ControlSection>
-      <ControlSection title="風量">
+      <ControlSection title={t("control.fanSpeed")}>
         <SegmentControl
           options={AC_FAN_SPEEDS}
           value={ac.fan}
@@ -114,13 +114,13 @@ function AcControls({ device, send, sending }: Props) {
 
 function VolumeButtons({ send, sending }: { send: SendFn; sending: boolean }) {
   return (
-    <ControlSection title="音量">
+    <ControlSection title={t("control.volume")}>
       <ActionRow>
         <ActionButton onClick={() => send("volumeSub")} disabled={sending}>
           -
         </ActionButton>
         <ActionButton onClick={() => send("setMute")} disabled={sending}>
-          ミュート
+          {t("control.mute")}
         </ActionButton>
         <ActionButton onClick={() => send("volumeAdd")} disabled={sending}>
           +
@@ -148,10 +148,10 @@ function DiyButtons({ device, send, sending }: Props) {
     <div className="control-section">
       <div className="control-section-header">
         <div className="control-section-title" style={{ marginBottom: 0 }}>
-          カスタムボタン
+          {t("control.customButtons")}
         </div>
         <button className="edit-toggle-btn" onClick={() => setEditing((v) => !v)}>
-          {editing ? "完了" : "編集"}
+          {editing ? t("control.done") : t("control.edit")}
         </button>
       </div>
       {buttons.length > 0 && (
@@ -196,7 +196,7 @@ function DiyButtons({ device, send, sending }: Props) {
             <input
               type="text"
               className="custom-btn-input"
-              placeholder="番号"
+              placeholder={t("control.buttonId")}
               inputMode="numeric"
               value={newId}
               onChange={(e) => setNewId(e.target.value)}
@@ -205,7 +205,7 @@ function DiyButtons({ device, send, sending }: Props) {
             <input
               type="text"
               className="custom-btn-input"
-              placeholder="表示名"
+              placeholder={t("control.buttonLabel")}
               value={newLabel}
               onChange={(e) => setNewLabel(e.target.value)}
               style={{ flex: 2 }}
@@ -216,12 +216,12 @@ function DiyButtons({ device, send, sending }: Props) {
             className="action-btn action-btn-primary"
             disabled={!newId.trim() || !newLabel.trim()}
           >
-            追加
+            {t("control.add")}
           </button>
         </form>
       )}
       {buttons.length === 0 && !editing && (
-        <div className="diy-empty">「編集」からボタンを登録してください</div>
+        <div className="diy-empty">{t("control.customButtonsEmpty")}</div>
       )}
     </div>
   );
@@ -230,7 +230,7 @@ function DiyButtons({ device, send, sending }: Props) {
 function FreeformButton({ send, sending }: { send: SendFn; sending: boolean }) {
   const [name, setName] = useState("");
   return (
-    <ControlSection title="カスタムボタン">
+    <ControlSection title={t("control.customButtons")}>
       <form
         className="custom-btn-form"
         onSubmit={(e) => {
@@ -242,7 +242,7 @@ function FreeformButton({ send, sending }: { send: SendFn; sending: boolean }) {
         <input
           type="text"
           className="custom-btn-input"
-          placeholder="ボタン名を入力"
+          placeholder={t("control.enterButtonName")}
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
@@ -251,7 +251,7 @@ function FreeformButton({ send, sending }: { send: SendFn; sending: boolean }) {
           className="action-btn action-btn-primary"
           disabled={sending || !name.trim()}
         >
-          送信
+          {t("control.send")}
         </button>
       </form>
     </ControlSection>
@@ -285,7 +285,7 @@ export function IrControls({ device, send, sending }: Props) {
         <>
           <PowerButtons send={send} sending={sending} />
           <VolumeButtons send={send} sending={sending} />
-          <ControlSection title="チャンネル">
+          <ControlSection title={t("control.channel")}>
             <div className="channel-grid">
               {TV_CHANNELS.map((ch) => (
                 <button
@@ -305,7 +305,7 @@ export function IrControls({ device, send, sending }: Props) {
       {isFan && (
         <>
           <PowerButtons send={send} sending={sending} />
-          <ControlSection title="風量">
+          <ControlSection title={t("control.fanSpeed")}>
             <SegmentControl
               options={IR_FAN_SPEEDS}
               onSelect={(cmd) => send(cmd)}
@@ -315,10 +315,10 @@ export function IrControls({ device, send, sending }: Props) {
           <ControlSection>
             <ActionRow>
               <ActionButton onClick={() => send("swing")} disabled={sending}>
-                首振り
+                {t("control.swing")}
               </ActionButton>
               <ActionButton onClick={() => send("timer")} disabled={sending}>
-                タイマー
+                {t("control.timer")}
               </ActionButton>
             </ActionRow>
           </ControlSection>
@@ -328,7 +328,7 @@ export function IrControls({ device, send, sending }: Props) {
       {isLight && (
         <>
           <PowerButtons send={send} sending={sending} />
-          <ControlSection title="明るさ">
+          <ControlSection title={t("control.brightness")}>
             <ActionRow>
               <ActionButton
                 onClick={() => send("brightnessDown")}
@@ -351,7 +351,7 @@ export function IrControls({ device, send, sending }: Props) {
                   onClick={() => send("colorTemperature")}
                   disabled={sending}
                 >
-                  色温度切替
+                  {t("control.colorTempToggle")}
                 </ActionButton>
               </ActionRow>
             </ControlSection>
@@ -365,7 +365,7 @@ export function IrControls({ device, send, sending }: Props) {
           {!isDIY && (
             <>
               <VolumeButtons send={send} sending={sending} />
-              <ControlSection title="再生">
+              <ControlSection title={t("control.playback")}>
                 <ActionRow>
                   <ActionButton onClick={() => send("Rewind")} disabled={sending}>
                     ◀◀
@@ -382,13 +382,13 @@ export function IrControls({ device, send, sending }: Props) {
                 </ActionRow>
                 <ActionRow style={{ marginTop: 8 }}>
                   <ActionButton onClick={() => send("Previous")} disabled={sending}>
-                    前へ
+                    {t("control.prev")}
                   </ActionButton>
                   <ActionButton onClick={() => send("Pause")} disabled={sending}>
-                    一時停止
+                    {t("control.pause")}
                   </ActionButton>
                   <ActionButton onClick={() => send("Next")} disabled={sending}>
-                    次へ
+                    {t("control.next")}
                   </ActionButton>
                 </ActionRow>
               </ControlSection>

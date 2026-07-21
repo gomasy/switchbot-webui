@@ -4,7 +4,7 @@ import "./styles.css";
 
 createRoot(document.getElementById("root")!).render(<App />);
 
-// 開発中は Parcel の HMR と干渉するため本番ビルドのみ登録する
+// Only register the service worker in production to avoid conflicts with Parcel HMR
 if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
   navigator.serviceWorker.register(new URL("sw.js", import.meta.url));
 }

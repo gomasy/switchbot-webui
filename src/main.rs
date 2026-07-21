@@ -37,7 +37,7 @@ const SWITCHBOT_API: &str = "https://api.switch-bot.com";
 const JSON_CT: &str = "application/json";
 const MAX_BODY_BYTES: usize = 1024 * 1024;
 
-/// 起動に必須の設定が欠けている場合にエラーを表示して終了する
+/// Print an error and exit when a required configuration value is missing.
 fn die(msg: impl std::fmt::Display) -> ! {
     eprintln!("Error: {msg}");
     process::exit(1);
@@ -47,7 +47,7 @@ struct AppState {
     token: HeaderValue,
     secret: String,
     client: reqwest::Client,
-    /// AUTH_TOKEN の SHA-256 ハッシュ (base64url)。None なら認証なしで動作する
+    /// SHA-256 hash (base64url) of AUTH_TOKEN. None disables authentication.
     auth_hash: Option<String>,
 }
 
@@ -61,7 +61,7 @@ fn hash_token(token: &str) -> String {
     URL_SAFE_NO_PAD.encode(Sha256::digest(token.as_bytes()))
 }
 
-/// タイミング攻撃で比較対象の値を推測されないよう、両辺を再ハッシュしてから比較する
+/// Re-hash both sides before comparing to prevent timing side-channel attacks.
 fn eq_hashed(a: &str, b: &str) -> bool {
     Sha256::digest(a.as_bytes()) == Sha256::digest(b.as_bytes())
 }
@@ -79,14 +79,14 @@ fn is_authorized(state: &AppState, headers: &HeaderMap) -> bool {
         .any(|v| eq_hashed(v, expected))
 }
 
-/// AUTH_TOKEN と照合し、一致すれば認証 Cookie を発行する。
-/// Cookie にはトークンそのものではなくハッシュを保存する。
+/// Verify the token against AUTH_TOKEN and issue an auth cookie on match.
+/// The cookie stores the hash, not the raw token.
 async fn login(State(state): State<Arc<AppState>>, body: String) -> Response {
     let Some(expected) = &state.auth_hash else {
         return error_response(StatusCode::NOT_FOUND);
     };
     if !eq_hashed(&hash_token(body.trim()), expected) {
-        // ブルートフォースを遅らせるため、失敗時は少し待ってから応答する
+        // Delay on failure to slow down brute-force attempts
         tokio::time::sleep(Duration::from_millis(500)).await;
         return error_response(StatusCode::UNAUTHORIZED);
     }
@@ -101,7 +101,7 @@ async fn login(State(state): State<Arc<AppState>>, body: String) -> Response {
         .into_response()
 }
 
-/// SwitchBot API v1.1 の認証ヘッダ (token + HMAC-SHA256 署名) を生成する
+/// Build SwitchBot API v1.1 auth headers (token + HMAC-SHA256 signature).
 fn auth_headers(state: &AppState) -> HeaderMap {
     let t = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
@@ -139,8 +139,8 @@ fn auth_headers(state: &AppState) -> HeaderMap {
 async fn api_proxy(State(state): State<Arc<AppState>>, req: Request<Body>) -> Response {
     let (parts, body) = req.into_parts();
     if !is_authorized(&state, &parts.headers) {
-        // 上流 SwitchBot API の 401 と区別できるよう、このサーバーの認証拒否にのみ
-        // WWW-Authenticate を付ける (フロントはこれを見てログイン画面を出す)
+        // Attach WWW-Authenticate only to our own auth rejection so the frontend
+        // can distinguish it from an upstream SwitchBot API 401
         let mut resp = error_response(StatusCode::UNAUTHORIZED);
         resp.headers_mut()
             .insert(WWW_AUTHENTICATE, HeaderValue::from_static("Cookie"));
@@ -184,7 +184,7 @@ async fn api_proxy(State(state): State<Arc<AppState>>, req: Request<Body>) -> Re
 
 #[tokio::main]
 async fn main() {
-    // .env があれば読み込む (無くてもエラーにしない)
+    // Load .env if present; ignore if missing
     let dotenv_loaded = dotenvy::dotenv().is_ok();
 
     let token = env::var("SWITCHBOT_TOKEN").unwrap_or_else(|_| die("SWITCHBOT_TOKEN must be set"));

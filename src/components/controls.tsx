@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 
-/** デバイスへコマンドを送信する関数 (parameter/commandType は省略時 "default"/"command") */
+/** Send a command to a device (parameter/commandType default to "default"/"command"). */
 export type SendFn = (
   command: string,
   parameter?: unknown,
@@ -58,7 +58,7 @@ export function ActionButton({
   );
 }
 
-/** range input の値を変更しうるキー (フォーカス移動の Tab などではコミットしない) */
+/** Keys that change a range input's value (Tab etc. move focus without committing). */
 const SLIDER_KEYS = new Set([
   "ArrowLeft",
   "ArrowRight",

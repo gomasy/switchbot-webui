@@ -65,14 +65,14 @@ const CATEGORIES: Record<DeviceCategory, CategoryInfo> = {
   fan: { icon: "🌀", controls: ["power"] },
   airConditioner: { icon: "❄️", controls: [] },
   tv: { icon: "📺", controls: [] },
-  // 未知のタイプは操作可能デバイスの可能性が高いので電源のみ許可
+  // Unknown types likely have controllable power
   unknown: { icon: "📱", controls: ["power"] },
 };
 
 export function getCategory(deviceType: string | undefined): DeviceCategory {
   if (!deviceType) return "unknown";
   const t = deviceType.toLowerCase();
-  // vacuum は bot より先に判定する ("Robot Vacuum Cleaner" が "bot" に部分一致するため)
+  // Check vacuum before bot ("Robot Vacuum Cleaner" partially matches "bot")
   if (
     t.includes("vacuum") ||
     t.includes("k10") ||
@@ -119,7 +119,7 @@ export function isHub(deviceType: string): boolean {
   return getCategory(deviceType) === "hub";
 }
 
-/** 物理デバイスは deviceType、赤外線デバイスは remoteType を種別ラベルとして返す */
+/** Return deviceType for physical devices, remoteType for infrared devices. */
 export function getTypeLabel(device: Device | InfraredDevice): string {
   return "remoteType" in device ? device.remoteType : device.deviceType;
 }

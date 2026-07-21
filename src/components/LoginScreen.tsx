@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { login } from "../api";
+import { t } from "../i18n";
 
 interface Props {
   onSuccess: () => void;
@@ -35,25 +36,25 @@ export function LoginScreen({ onSuccess }: Props) {
         <div className="login-icon">🔐</div>
         <div className="login-title">SwitchBot WebUI</div>
         <div className="login-description">
-          アクセストークンを入力してください
+          {t("auth.enterToken")}
         </div>
         <input
           type="password"
           className="login-input"
-          placeholder="アクセストークン"
+          placeholder={t("auth.tokenPlaceholder")}
           value={token}
           onChange={(e) => setToken(e.target.value)}
           autoFocus
         />
         {failed && (
-          <div className="login-error">トークンが正しくありません</div>
+          <div className="login-error">{t("auth.invalidToken")}</div>
         )}
         <button
           type="submit"
           className="action-btn action-btn-primary"
           disabled={busy || !token.trim()}
         >
-          {busy ? "確認中..." : "ログイン"}
+          {busy ? t("auth.verifying") : t("auth.login")}
         </button>
       </form>
     </div>

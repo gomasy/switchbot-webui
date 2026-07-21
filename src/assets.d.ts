@@ -1,4 +1,4 @@
 declare module "*.css";
 
-// Parcel がビルド時に置換する環境変数
+// Environment variable replaced by Parcel at build time
 declare const process: { env: { NODE_ENV?: string } };

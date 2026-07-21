@@ -6,6 +6,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY src/ src/
+COPY locales/ locales/
 COPY scripts/ scripts/
 COPY tsconfig.json ./
 RUN npm run build

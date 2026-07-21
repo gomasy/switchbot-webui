@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getDevices, getScenes, executeScene, UnauthorizedError } from "./api";
 import { useToasts } from "./hooks";
+import { t, tFmt } from "./i18n";
 import { groupRooms, type RoomDevice } from "./rooms";
 import type { Device, DeviceStatus, InfraredDevice, Scene } from "./types";
 import { Header } from "./components/Header";
@@ -46,7 +47,6 @@ export function App() {
     setLoading(true);
     setError(null);
     lastFetch.current = Date.now();
-    // マウント済みの DeviceCard にもステータス再取得を促す
     setRefreshSignal((n) => n + 1);
     try {
       const [devRes, sceneRes] = await Promise.all([getDevices(), getScenes()]);
@@ -54,7 +54,7 @@ export function App() {
         setDevices(devRes.body.deviceList || []);
         setIrDevices(devRes.body.infraredRemoteList || []);
       } else {
-        setError(devRes.message || "デバイスの取得に失敗しました");
+        setError(devRes.message || t("app.fetchDevicesFailed"));
       }
       if (sceneRes.statusCode === 100) {
         setScenes(sceneRes.body || []);
@@ -63,7 +63,7 @@ export function App() {
       if (e instanceof UnauthorizedError) {
         setNeedsLogin(true);
       } else {
-        setError(e instanceof Error ? e.message : "接続に失敗しました");
+        setError(e instanceof Error ? e.message : t("app.connectionFailed"));
       }
     } finally {
       setLoading(false);
@@ -74,7 +74,6 @@ export function App() {
     fetchData();
   }, [fetchData]);
 
-  // タブに戻ってきたとき、前回取得から 1 分以上経っていれば自動で更新する
   useEffect(() => {
     if (needsLogin) return;
     const onVisible = () => {
@@ -95,15 +94,15 @@ export function App() {
     try {
       const res = await executeScene(sceneId);
       if (res.statusCode === 100) {
-        addToast("シーンを実行しました", "success");
+        addToast(t("app.sceneExecuted"), "success");
       } else {
-        addToast(`エラー: ${res.message}`, "error");
+        addToast(tFmt("common.error", { message: res.message }), "error");
       }
     } catch (e) {
       if (e instanceof UnauthorizedError) {
         setNeedsLogin(true);
       } else {
-        addToast("シーンの実行に失敗しました", "error");
+        addToast(t("app.executeSceneFailed"), "error");
       }
     } finally {
       setExecutingScene(null);
@@ -134,12 +133,12 @@ export function App() {
         {error ? (
           <div className="error-message">
             <p>{error}</p>
-            <button onClick={fetchData}>再試行</button>
+            <button onClick={fetchData}>{t("app.retry")}</button>
           </div>
         ) : loading && devices.length === 0 ? (
           <div className="loading">
             <div className="spinner" />
-            <span>デバイスを読み込み中...</span>
+            <span>{t("app.loadingDevices")}</span>
           </div>
         ) : tab === "home" ? (
           rooms.length > 0 ? (
@@ -164,7 +163,7 @@ export function App() {
           ) : (
             <div className="empty-state">
               <div className="empty-state-icon">📱</div>
-              <div className="empty-state-text">デバイスが見つかりません</div>
+              <div className="empty-state-text">{t("app.noDevices")}</div>
             </div>
           )
         ) : (
@@ -182,14 +181,14 @@ export function App() {
           onClick={() => setTab("home")}
         >
           <span className="nav-icon">🏠</span>
-          ホーム
+          {t("nav.home")}
         </button>
         <button
           className={`nav-item ${tab === "scenes" ? "active" : ""}`}
           onClick={() => setTab("scenes")}
         >
           <span className="nav-icon">⚡</span>
-          シーン
+          {t("nav.scenes")}
         </button>
       </nav>
 
@@ -211,9 +210,9 @@ export function App() {
       )}
 
       <div className="toast-container">
-        {toasts.map((t) => (
-          <div key={t.id} className={`toast ${t.type}`}>
-            {t.message}
+        {toasts.map((toast) => (
+          <div key={toast.id} className={`toast ${toast.type}`}>
+            {toast.message}
           </div>
         ))}
       </div>

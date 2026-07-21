@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getDeviceStatus } from "../api";
 import { getControls, getDeviceIcon, getTypeLabel } from "../deviceRegistry";
 import { useModalClose, useSendCommand } from "../hooks";
+import { t } from "../i18n";
 import { buildStatusItems } from "../status";
 import type { Device, InfraredDevice, DeviceStatus, ToastFn } from "../types";
 import type { SendFn } from "./controls";
@@ -31,7 +32,7 @@ export function DeviceDetail({ device, isInfrared, onClose, onToast }: Props) {
       const res = await getDeviceStatus(device.deviceId);
       if (res.statusCode === 100) setStatus(res.body);
     } catch {
-      onToast("ステータスの取得に失敗しました", "error");
+      onToast(t("device.fetchStatusFailed"), "error");
     } finally {
       setLoading(false);
     }
@@ -44,7 +45,6 @@ export function DeviceDetail({ device, isInfrared, onClose, onToast }: Props) {
   const send: SendFn = async (command, parameter, commandType) => {
     if (await sendRaw(command, parameter, commandType)) {
       onToast(`${device.deviceName}: ${command}`, "success");
-      // 反映に少し時間がかかるため、1 秒待ってからステータスを取り直す
       if (!isInfrared) refetchTimer.current = setTimeout(fetchStatus, 1000);
     }
   };
@@ -73,7 +73,6 @@ export function DeviceDetail({ device, isInfrared, onClose, onToast }: Props) {
               <div className="spinner" />
             </div>
           )}
-          {/* ローディング中も unmount せず隠すだけにして、操作系の state を保持する */}
           <div hidden={loading}>
             {statusItems.length > 0 && (
               <div className="status-section">
@@ -107,7 +106,7 @@ export function DeviceDetail({ device, isInfrared, onClose, onToast }: Props) {
               <div className="empty-state">
                 <div className="empty-state-icon">📊</div>
                 <div className="empty-state-text">
-                  このデバイスの詳細情報はありません
+                  {t("device.noDetails")}
                 </div>
               </div>
             )}
