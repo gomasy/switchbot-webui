@@ -218,6 +218,7 @@ async fn main() {
         .route("/auth/login", axum::routing::post(login))
         .with_state(state.clone())
         .nest_service("/api/", axum::routing::any(api_proxy).with_state(state))
+        .nest_service("/locales", ServeDir::new("locales"))
         .fallback_service(ServeDir::new("dist").fallback(ServeFile::new("dist/index.html")));
 
     println!("══════════════════════════════════════════");

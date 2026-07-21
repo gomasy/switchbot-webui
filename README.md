@@ -74,9 +74,9 @@ Multi-architecture images (amd64 / arm64) are automatically built via GitHub Act
 ## Adding a Language
 
 Drop a JSON file named `<code>.json` (e.g. `fr.json`) into the `locales/` directory
-with the same keys as `en.json`. The build script picks it up automatically — no
-source changes required. The UI selects the best match from `navigator.language`
-at load time and falls back to English.
+with the same keys as `en.json`. No rebuild required — locale files are served
+directly and fetched on demand at runtime. The UI selects the best match from
+`navigator.language` at load time and falls back to English.
 
 ## Tech Stack
 
