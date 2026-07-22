@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { sendCommand } from "./api";
+import { sendCommand, UnauthorizedError } from "./api";
 import { t, tFmt } from "./i18n";
 import type { ToastFn, ToastType } from "./types";
 
@@ -64,8 +64,11 @@ export function useSendCommand(deviceId: string, onToast: ToastFn) {
       const res = await sendCommand(deviceId, command, parameter, commandType);
       if (res.statusCode === 100) return true;
       onToast(tFmt("common.error", { message: res.message }), "error");
-    } catch {
-      onToast(t("common.commandFailed"), "error");
+    } catch (e) {
+      // Unauthorized is handled globally; avoid a misleading failure toast.
+      if (!(e instanceof UnauthorizedError)) {
+        onToast(t("common.commandFailed"), "error");
+      }
     } finally {
       setSending(false);
     }

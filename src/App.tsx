@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getDevices, getScenes, executeScene, UnauthorizedError } from "./api";
+import {
+  getDevices,
+  getScenes,
+  executeScene,
+  UnauthorizedError,
+  setUnauthorizedHandler,
+} from "./api";
 import { useToasts } from "./hooks";
 import { t, tFmt } from "./i18n";
 import { groupRooms, type RoomDevice } from "./rooms";
@@ -39,6 +45,12 @@ export function App() {
     localStorage.setItem("theme", theme);
   }, [darkMode]);
 
+  // Any request rejected with our auth 401 flips the app to the login screen.
+  useEffect(() => {
+    setUnauthorizedHandler(() => setNeedsLogin(true));
+    return () => setUnauthorizedHandler(null);
+  }, []);
+
   const rooms = useMemo(() => groupRooms(devices, irDevices), [devices, irDevices]);
 
   const lastFetch = useRef(0);
@@ -60,9 +72,8 @@ export function App() {
         setScenes(sceneRes.body || []);
       }
     } catch (e) {
-      if (e instanceof UnauthorizedError) {
-        setNeedsLogin(true);
-      } else {
+      // Unauthorized is handled globally via setUnauthorizedHandler.
+      if (!(e instanceof UnauthorizedError)) {
         setError(e instanceof Error ? e.message : t("app.connectionFailed"));
       }
     } finally {
@@ -99,9 +110,8 @@ export function App() {
         addToast(tFmt("common.error", { message: res.message }), "error");
       }
     } catch (e) {
-      if (e instanceof UnauthorizedError) {
-        setNeedsLogin(true);
-      } else {
+      // Unauthorized is handled globally via setUnauthorizedHandler.
+      if (!(e instanceof UnauthorizedError)) {
         addToast(t("app.executeSceneFailed"), "error");
       }
     } finally {

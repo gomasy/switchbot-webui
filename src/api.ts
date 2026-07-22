@@ -7,6 +7,17 @@ export class UnauthorizedError extends Error {
   }
 }
 
+let onUnauthorized: (() => void) | null = null;
+
+/**
+ * Register a callback invoked whenever the proxy rejects a request with our
+ * auth 401. Centralizes the "session expired → show login" decision so every
+ * caller (including background status fetches) reacts uniformly.
+ */
+export function setUnauthorizedHandler(handler: (() => void) | null): void {
+  onUnauthorized = handler;
+}
+
 async function request<T>(
   path: string,
   init?: RequestInit,
@@ -14,6 +25,7 @@ async function request<T>(
   const res = await fetch(`/api${path}`, init);
   // WWW-Authenticate on 401 distinguishes our proxy auth rejection from upstream API 401s
   if (res.status === 401 && res.headers.has("WWW-Authenticate")) {
+    onUnauthorized?.();
     throw new UnauthorizedError();
   }
   if (!res.ok) throw new Error(`API error: ${res.status}`);

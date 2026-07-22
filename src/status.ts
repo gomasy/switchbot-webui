@@ -67,7 +67,12 @@ export function buildStatusItems(status: DeviceStatus | null): StatusItem[] {
 
 export function deviceColorToHex(color: string): string {
   const [r, g, b] = color.split(":").map(Number);
-  const hex = (n: number) => n.toString(16).padStart(2, "0");
+  // Clamp to a valid byte (and coerce NaN to 0) so the result is always a
+  // well-formed hex color; an invalid value silently resets <input type="color">.
+  const hex = (n: number) =>
+    Math.max(0, Math.min(255, Math.round(n) || 0))
+      .toString(16)
+      .padStart(2, "0");
   return `#${hex(r)}${hex(g)}${hex(b)}`;
 }
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getDeviceStatus } from "../api";
+import { getDeviceStatus, UnauthorizedError } from "../api";
 import { getControls, getDeviceIcon, getTypeLabel } from "../deviceRegistry";
 import { useModalClose, useSendCommand } from "../hooks";
 import { t } from "../i18n";
@@ -31,8 +31,11 @@ export function DeviceDetail({ device, isInfrared, onClose, onToast }: Props) {
       setLoading(true);
       const res = await getDeviceStatus(device.deviceId);
       if (res.statusCode === 100) setStatus(res.body);
-    } catch {
-      onToast(t("device.fetchStatusFailed"), "error");
+    } catch (e) {
+      // Unauthorized is handled globally; avoid a misleading failure toast.
+      if (!(e instanceof UnauthorizedError)) {
+        onToast(t("device.fetchStatusFailed"), "error");
+      }
     } finally {
       setLoading(false);
     }
