@@ -4,7 +4,7 @@ edition = "2024"
 
 [dependencies]
 axum = "0.8.9"
-base64 = "0.22.1"
+base64 = "0.23.0"
 dotenvy = "0.15.7"
 hmac = "0.13"
 reqwest = "0.13.4"
