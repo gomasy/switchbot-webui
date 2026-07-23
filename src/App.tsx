@@ -130,6 +130,60 @@ export function App() {
     );
   }
 
+  const renderContent = () => {
+    if (error) {
+      return (
+        <div className="error-message">
+          <p>{error}</p>
+          <button onClick={fetchData}>{t("app.retry")}</button>
+        </div>
+      );
+    }
+    if (loading && devices.length === 0) {
+      return (
+        <div className="loading">
+          <div className="spinner" />
+          <span>{t("app.loadingDevices")}</span>
+        </div>
+      );
+    }
+    if (tab !== "home") {
+      return (
+        <SceneList
+          scenes={scenes}
+          executingScene={executingScene}
+          onExecute={handleExecuteScene}
+        />
+      );
+    }
+    if (rooms.length === 0) {
+      return (
+        <div className="empty-state">
+          <div className="empty-state-icon">📱</div>
+          <div className="empty-state-text">{t("app.noDevices")}</div>
+        </div>
+      );
+    }
+    return rooms.map((room) => (
+      <div key={room.name} className="room-section">
+        <div className="section-title">{room.name}</div>
+        <div className="device-grid">
+          {room.devices.map(({ device, isInfrared }) => (
+            <DeviceCard
+              key={device.deviceId}
+              device={device}
+              isInfrared={isInfrared}
+              externalStatus={deviceStatuses[device.deviceId]}
+              refreshSignal={refreshSignal}
+              onClick={() => setSelectedDevice({ device, isInfrared })}
+              onToast={addToast}
+            />
+          ))}
+        </div>
+      </div>
+    ));
+  };
+
   return (
     <>
       <Header
@@ -139,51 +193,7 @@ export function App() {
         onToggleTheme={() => setDarkMode((v) => !v)}
       />
 
-      <main className="main">
-        {error ? (
-          <div className="error-message">
-            <p>{error}</p>
-            <button onClick={fetchData}>{t("app.retry")}</button>
-          </div>
-        ) : loading && devices.length === 0 ? (
-          <div className="loading">
-            <div className="spinner" />
-            <span>{t("app.loadingDevices")}</span>
-          </div>
-        ) : tab === "home" ? (
-          rooms.length > 0 ? (
-            rooms.map((room) => (
-              <div key={room.name} className="room-section">
-                <div className="section-title">{room.name}</div>
-                <div className="device-grid">
-                  {room.devices.map(({ device, isInfrared }) => (
-                    <DeviceCard
-                      key={device.deviceId}
-                      device={device}
-                      isInfrared={isInfrared}
-                      externalStatus={deviceStatuses[device.deviceId]}
-                      refreshSignal={refreshSignal}
-                      onClick={() => setSelectedDevice({ device, isInfrared })}
-                      onToast={addToast}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="empty-state">
-              <div className="empty-state-icon">📱</div>
-              <div className="empty-state-text">{t("app.noDevices")}</div>
-            </div>
-          )
-        ) : (
-          <SceneList
-            scenes={scenes}
-            executingScene={executingScene}
-            onExecute={handleExecuteScene}
-          />
-        )}
-      </main>
+      <main className="main">{renderContent()}</main>
 
       <nav className="bottom-nav">
         <button
