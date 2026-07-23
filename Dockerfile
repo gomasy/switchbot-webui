@@ -28,5 +28,6 @@ WORKDIR /app
 COPY --from=backend /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=backend /app/target/release/switchbot-webui ./
 COPY --from=frontend /app/dist/ dist/
+COPY --from=frontend /app/locales/ locales/
 EXPOSE 3000
 CMD ["./switchbot-webui"]
