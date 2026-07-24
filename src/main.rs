@@ -301,6 +301,8 @@ async fn ws_handler(
 
 async fn handle_socket(mut socket: WebSocket, state: Arc<AppState>) {
     let mut rx = state.events.subscribe();
+    let mut ping_interval = tokio::time::interval(Duration::from_secs(30));
+    ping_interval.tick().await; // consume the immediate first tick
     loop {
         tokio::select! {
             event = rx.recv() => match event {
@@ -309,15 +311,18 @@ async fn handle_socket(mut socket: WebSocket, state: Arc<AppState>) {
                         break;
                     }
                 }
-                // A slow client that fell behind simply resumes from the newest events.
                 Err(broadcast::error::RecvError::Lagged(_)) => continue,
                 Err(broadcast::error::RecvError::Closed) => break,
             },
             client = socket.recv() => match client {
-                // Drain pings/messages; break on close or error.
                 Some(Ok(Message::Close(_))) | None => break,
                 Some(Ok(_)) => {}
                 Some(Err(_)) => break,
+            },
+            _ = ping_interval.tick() => {
+                if socket.send(Message::Ping(Vec::new().into())).await.is_err() {
+                    break;
+                }
             },
         }
     }
