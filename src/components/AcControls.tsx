@@ -9,20 +9,22 @@ import {
   type SendFn,
 } from "./controls";
 
-const AC_MODES = [
-  { value: 1, label: t("ac.auto") },
-  { value: 2, label: t("ac.cool") },
-  { value: 3, label: t("ac.dry") },
-  { value: 4, label: t("ac.fan") },
-  { value: 5, label: t("ac.heat") },
-] as const;
+const acModes = () =>
+  [
+    { value: 1, label: t("ac.auto") },
+    { value: 2, label: t("ac.cool") },
+    { value: 3, label: t("ac.dry") },
+    { value: 4, label: t("ac.fan") },
+    { value: 5, label: t("ac.heat") },
+  ] as const;
 
-const AC_FAN_SPEEDS = [
-  { value: 1, label: t("fan.auto") },
-  { value: 2, label: t("fan.low") },
-  { value: 3, label: t("fan.medium") },
-  { value: 4, label: t("fan.high") },
-] as const;
+const acFanSpeeds = () =>
+  [
+    { value: 1, label: t("fan.auto") },
+    { value: 2, label: t("fan.low") },
+    { value: 3, label: t("fan.medium") },
+    { value: 4, label: t("fan.high") },
+  ] as const;
 
 interface AcState {
   temp: number;
@@ -82,7 +84,7 @@ export function AcControls({ device, send, sending }: Props) {
       </ControlSection>
       <ControlSection title={t("control.mode")}>
         <SegmentControl
-          options={AC_MODES}
+          options={acModes()}
           value={ac.mode}
           onSelect={(mode) => updateAndSendIfOn({ mode })}
           disabled={sending}
@@ -90,7 +92,7 @@ export function AcControls({ device, send, sending }: Props) {
       </ControlSection>
       <ControlSection title={t("control.fanSpeed")}>
         <SegmentControl
-          options={AC_FAN_SPEEDS}
+          options={acFanSpeeds()}
           value={ac.fan}
           onSelect={(fan) => updateAndSendIfOn({ fan })}
           disabled={sending}

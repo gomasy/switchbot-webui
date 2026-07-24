@@ -12,8 +12,6 @@ export interface Room {
   devices: RoomDevice[];
 }
 
-const FALLBACK_ROOM = t("room.other");
-
 function roomName(hubName: string): string {
   return (
     hubName.replace(/\s*(ハブ|Hub)\s*(Mini|Plus|2|3)?\s*$/i, "").trim() ||
@@ -61,14 +59,15 @@ export function groupRooms(
     add(d.hubDeviceId || findHubByName(d.deviceName), d, true);
   }
 
+  const fallback = t("room.other");
   const rooms: Room[] = [];
   for (const [key, devs] of roomMap) {
-    const name = key ? hubMap.get(key) || key : FALLBACK_ROOM;
+    const name = key ? hubMap.get(key) || key : fallback;
     rooms.push({ name, devices: devs });
   }
   rooms.sort((a, b) => {
-    if (a.name === FALLBACK_ROOM) return 1;
-    if (b.name === FALLBACK_ROOM) return -1;
+    if (a.name === fallback) return 1;
+    if (b.name === fallback) return -1;
     return a.name.localeCompare(b.name);
   });
   return rooms;

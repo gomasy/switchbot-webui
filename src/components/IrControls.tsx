@@ -18,11 +18,12 @@ interface Props {
   sending: boolean;
 }
 
-const IR_FAN_SPEEDS = [
-  { value: "lowSpeed", label: t("fan.low") },
-  { value: "middleSpeed", label: t("fan.medium") },
-  { value: "highSpeed", label: t("fan.high") },
-] as const;
+const irFanSpeeds = () =>
+  [
+    { value: "lowSpeed", label: t("fan.low") },
+    { value: "middleSpeed", label: t("fan.medium") },
+    { value: "highSpeed", label: t("fan.high") },
+  ] as const;
 
 const TV_CHANNELS = Array.from({ length: 12 }, (_, i) => i + 1);
 
@@ -124,7 +125,7 @@ export function IrControls({ device, send, sending }: Props) {
           <PowerButtons send={send} sending={sending} />
           <ControlSection title={t("control.fanSpeed")}>
             <SegmentControl
-              options={IR_FAN_SPEEDS}
+              options={irFanSpeeds()}
               onSelect={(cmd) => send(cmd)}
               disabled={sending}
             />

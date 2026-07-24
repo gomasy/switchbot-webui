@@ -71,38 +71,38 @@ const CATEGORIES: Record<DeviceCategory, CategoryInfo> = {
 
 export function getCategory(deviceType: string | undefined): DeviceCategory {
   if (!deviceType) return "unknown";
-  const t = deviceType.toLowerCase();
+  const dt = deviceType.toLowerCase();
   // Check vacuum before bot ("Robot Vacuum Cleaner" partially matches "bot")
   if (
-    t.includes("vacuum") ||
-    t.includes("k10") ||
-    t.includes("k20") ||
-    t.includes("s10") ||
-    t.includes("k11")
+    dt.includes("vacuum") ||
+    dt.includes("k10") ||
+    dt.includes("k20") ||
+    dt.includes("s10") ||
+    dt.includes("k11")
   )
     return "vacuum";
-  if (t.includes("meter") || t.includes("thermo")) return "meter";
-  if (t.includes("motion")) return "motion";
-  if (t.includes("contact")) return "contact";
-  if (t.includes("keypad")) return "keypad";
-  if (t.includes("water")) return "water";
-  if (t.includes("cam")) return "camera";
-  if (t.includes("remote")) return "remote";
-  if (t.includes("hub")) return "hub";
-  if (t.includes("bot")) return "bot";
-  if (t.includes("plug")) return "plug";
-  if (t.includes("color bulb") || t.includes("strip")) return "colorLight";
-  if (t.includes("ceiling light")) return "ceilingLight";
-  if (t.includes("bulb") || t.includes("light") || t.includes("lamp"))
+  if (dt.includes("meter") || dt.includes("thermo")) return "meter";
+  if (dt.includes("motion")) return "motion";
+  if (dt.includes("contact")) return "contact";
+  if (dt.includes("keypad")) return "keypad";
+  if (dt.includes("water")) return "water";
+  if (dt.includes("cam")) return "camera";
+  if (dt.includes("remote")) return "remote";
+  if (dt.includes("hub")) return "hub";
+  if (dt.includes("bot")) return "bot";
+  if (dt.includes("plug")) return "plug";
+  if (dt.includes("color bulb") || dt.includes("strip")) return "colorLight";
+  if (dt.includes("ceiling light")) return "ceilingLight";
+  if (dt.includes("bulb") || dt.includes("light") || dt.includes("lamp"))
     return "light";
-  if (t.includes("curtain") || t.includes("blind") || t.includes("roller"))
+  if (dt.includes("curtain") || dt.includes("blind") || dt.includes("roller"))
     return "curtain";
-  if (t.includes("lock")) return "lock";
-  if (t.includes("humidifier")) return "humidifier";
-  if (t.includes("purifier")) return "purifier";
-  if (t.includes("fan") || t.includes("circulator")) return "fan";
-  if (t.includes("air conditioner")) return "airConditioner";
-  if (t.includes("tv") || t.includes("dvd") || t.includes("projector"))
+  if (dt.includes("lock")) return "lock";
+  if (dt.includes("humidifier")) return "humidifier";
+  if (dt.includes("purifier")) return "purifier";
+  if (dt.includes("fan") || dt.includes("circulator")) return "fan";
+  if (dt.includes("air conditioner")) return "airConditioner";
+  if (dt.includes("tv") || dt.includes("dvd") || dt.includes("projector"))
     return "tv";
   return "unknown";
 }

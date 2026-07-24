@@ -22,7 +22,7 @@ export function SceneList({ scenes, executingScene, onExecute }: Props) {
               <button
                 className="scene-card-run"
                 onClick={() => onExecute(s.sceneId)}
-                disabled={executingScene === s.sceneId}
+                disabled={executingScene !== null}
               >
                 {executingScene === s.sceneId ? t("scene.executing") : t("scene.execute")}
               </button>
