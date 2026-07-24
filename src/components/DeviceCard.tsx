@@ -35,8 +35,10 @@ export function DeviceCard({
       .catch(() => {});
   }, [device.deviceId, isInfrared, refreshSignal]);
 
+  // Merge (not replace): realtime webhook updates are partial, so keep any
+  // fields the card already fetched that the update doesn't mention.
   useEffect(() => {
-    if (externalStatus) setStatus(externalStatus);
+    if (externalStatus) setStatus((prev) => ({ ...prev, ...externalStatus }));
   }, [externalStatus]);
 
   const handleToggle = async (e: React.MouseEvent) => {

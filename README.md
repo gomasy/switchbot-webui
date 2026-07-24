@@ -13,7 +13,9 @@ A web-based control panel using the SwitchBot API v1.1.
 - Dark mode / light mode toggle
 - Installable as a PWA (add to home screen)
 - Low battery warning on device cards
-- Optional access authentication via `AUTH_TOKEN`
+- Optional access authentication via `AUTH_TOKEN`, with logout
+- Realtime status updates over WebSocket (opt-in, via SwitchBot webhook)
+- Server-side status caching to stay under the SwitchBot API rate limit
 
 ## Setup
 
@@ -42,7 +44,32 @@ The server listens on port 3000 by default. Set `PORT` to change it.
 To require authentication for the UI, set `AUTH_TOKEN` to a long random string.
 When set, the web UI prompts for this token on first access and stores a session
 cookie for one year. When unset, the UI is accessible without authentication
-(a warning is printed at startup).
+(a warning is printed at startup). A logout button appears in the header while
+authentication is enabled.
+
+### Realtime updates (optional)
+
+By default the UI fetches device status on load and when the tab regains focus.
+Set `WEBHOOK_URL` to a publicly reachable URL to receive changes in realtime:
+
+```
+WEBHOOK_URL=https://your-host/webhook
+```
+
+On startup the server registers this URL with the SwitchBot API (overwriting any
+previously configured webhook for the token). SwitchBot then POSTs device state
+changes to the URL's path, and the server pushes them to the browser over a
+WebSocket at `/ws` — physical operations and changes from other apps appear
+immediately without polling. The URL must be reachable from the internet; the
+path portion (e.g. `/webhook`) is where the receiver is mounted, so choosing a
+hard-to-guess path adds a little protection (SwitchBot webhooks are unsigned).
+
+### Rate limiting
+
+The SwitchBot API allows a limited number of calls per day. To avoid exhausting
+it when several device cards or clients are open, status responses are cached
+server-side for `STATUS_CACHE_TTL` seconds (default `5`; set to `0` to disable).
+Cached entries are dropped immediately when a webhook reports a change.
 
 ### Development
 

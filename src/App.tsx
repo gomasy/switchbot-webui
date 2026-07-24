@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  getConfig,
   getDevices,
   getScenes,
   executeScene,
+  logout,
   UnauthorizedError,
   setUnauthorizedHandler,
 } from "./api";
 import { useToasts } from "./hooks";
+import { useRealtime } from "./realtime";
 import { t, tFmt } from "./i18n";
 import { groupRooms, type RoomDevice } from "./rooms";
 import type { Device, DeviceStatus, InfraredDevice, Scene } from "./types";
@@ -37,6 +40,8 @@ export function App() {
   const [deviceStatuses, setDeviceStatuses] = useState<Record<string, DeviceStatus>>({});
   const [refreshSignal, setRefreshSignal] = useState(0);
   const [needsLogin, setNeedsLogin] = useState(false);
+  const [authEnabled, setAuthEnabled] = useState(false);
+  const [realtime, setRealtime] = useState(false);
   const { toasts, addToast } = useToasts();
 
   useEffect(() => {
@@ -50,6 +55,30 @@ export function App() {
     setUnauthorizedHandler(() => setNeedsLogin(true));
     return () => setUnauthorizedHandler(null);
   }, []);
+
+  // Learn whether login is required and whether realtime updates are available.
+  useEffect(() => {
+    getConfig()
+      .then((cfg) => {
+        setAuthEnabled(cfg.authEnabled);
+        setRealtime(cfg.realtime);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Merge realtime device updates into the shared status map; DeviceCard picks
+  // them up via externalStatus. Paused while the login screen is shown.
+  useRealtime(realtime && !needsLogin, (update) => {
+    setDeviceStatuses((prev) => ({
+      ...prev,
+      [update.deviceId]: { ...prev[update.deviceId], ...update } as DeviceStatus,
+    }));
+  });
+
+  const handleLogout = async () => {
+    await logout();
+    setNeedsLogin(true);
+  };
 
   const rooms = useMemo(() => groupRooms(devices, irDevices), [devices, irDevices]);
 
@@ -191,6 +220,7 @@ export function App() {
         onRefresh={fetchData}
         darkMode={darkMode}
         onToggleTheme={() => setDarkMode((v) => !v)}
+        onLogout={authEnabled ? handleLogout : undefined}
       />
 
       <main className="main">{renderContent()}</main>

@@ -62,6 +62,7 @@
   "fan.high": "High",
   "fan.low": "Low",
   "fan.medium": "Med",
+  "header.logout": "Logout",
   "header.refresh": "Refresh",
   "header.toggleTheme": "Toggle theme",
   "nav.home": "Home",

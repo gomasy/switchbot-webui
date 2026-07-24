@@ -38,6 +38,25 @@ export async function login(token: string): Promise<boolean> {
   return res.ok;
 }
 
+/** Clear the auth cookie, ending the current session. */
+export async function logout(): Promise<void> {
+  await fetch("/auth/logout", { method: "POST" });
+}
+
+export interface AppConfig {
+  /** Whether the UI requires a login before it can be used. */
+  authEnabled: boolean;
+  /** Whether the server pushes realtime device updates over WebSocket. */
+  realtime: boolean;
+}
+
+/** Fetch server-side flags the app needs before rendering. */
+export async function getConfig(): Promise<AppConfig> {
+  const res = await fetch("/config");
+  if (!res.ok) throw new Error(`config: ${res.status}`);
+  return res.json();
+}
+
 function post<T>(path: string, body?: unknown) {
   return request<T>(path, {
     method: "POST",

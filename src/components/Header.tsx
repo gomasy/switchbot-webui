@@ -6,9 +6,17 @@ interface Props {
   onRefresh: () => void;
   darkMode: boolean;
   onToggleTheme: () => void;
+  /** Provided only when authentication is enabled; renders a logout button. */
+  onLogout?: () => void;
 }
 
-export function Header({ loading, onRefresh, darkMode, onToggleTheme }: Props) {
+export function Header({
+  loading,
+  onRefresh,
+  darkMode,
+  onToggleTheme,
+  onLogout,
+}: Props) {
   return (
     <header className="header">
       <div className="header-brand">
@@ -31,6 +39,15 @@ export function Header({ loading, onRefresh, darkMode, onToggleTheme }: Props) {
         >
           ↻
         </button>
+        {onLogout && (
+          <button
+            className="btn-icon"
+            onClick={onLogout}
+            aria-label={t("header.logout")}
+          >
+            ⏻
+          </button>
+        )}
       </div>
     </header>
   );
