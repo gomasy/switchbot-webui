@@ -232,7 +232,7 @@ async fn api_proxy(State(state): State<Arc<AppState>>, req: Request<Body>) -> Re
         let hit = state
             .status_cache
             .lock()
-            .unwrap()
+            .expect("status_cache lock poisoned")
             .get(key)
             .filter(|e| e.fetched.elapsed() < state.cache_ttl)
             .map(|e| e.body.clone());
@@ -263,13 +263,17 @@ async fn api_proxy(State(state): State<Arc<AppState>>, req: Request<Body>) -> Re
                         && status == StatusCode::OK
                         && body_status_ok(&bytes)
                     {
-                        state.status_cache.lock().unwrap().insert(
-                            key,
-                            CacheEntry {
-                                fetched: Instant::now(),
-                                body: bytes.to_vec(),
-                            },
-                        );
+                        state
+                            .status_cache
+                            .lock()
+                            .expect("status_cache lock poisoned")
+                            .insert(
+                                key,
+                                CacheEntry {
+                                    fetched: Instant::now(),
+                                    body: bytes.to_vec(),
+                                },
+                            );
                     }
                     (status, [(CONTENT_TYPE, JSON_CT)], bytes).into_response()
                 }
@@ -329,7 +333,11 @@ async fn webhook(State(state): State<Arc<AppState>>, body: Bytes) -> StatusCode 
         return StatusCode::NO_CONTENT;
     };
     if let Some(mac) = context.get("deviceMac").and_then(|v| v.as_str()) {
-        state.status_cache.lock().unwrap().remove(mac);
+        state
+            .status_cache
+            .lock()
+            .expect("status_cache lock poisoned")
+            .remove(mac);
     }
     if let Ok(text) = serde_json::to_string(context) {
         // Ignore the error when no clients are currently connected.
