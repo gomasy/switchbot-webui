@@ -18,10 +18,10 @@ ENV GIT_HASH=$GIT_HASH BUILD_DATE=$BUILD_DATE
 RUN apk add --no-cache musl-dev pkgconfig openssl-dev openssl-libs-static ca-certificates
 WORKDIR /app
 COPY Cargo.toml Cargo.lock build.rs ./
-RUN mkdir src && echo 'fn main() {}' > src/main.rs && cargo build --release && rm src/main.rs
+RUN mkdir src && echo 'fn main() {}' > src/main.rs && cargo build --release --locked && rm src/main.rs
 COPY package.json ./
 COPY src/main.rs src/main.rs
-RUN touch src/main.rs && cargo build --release
+RUN touch src/main.rs && cargo build --release --locked
 
 FROM scratch
 WORKDIR /app
