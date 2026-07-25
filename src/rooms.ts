@@ -8,6 +8,9 @@ export interface RoomDevice {
 }
 
 export interface Room {
+  /** Hub deviceId, or "" for the fallback room. Unique even when two hubs
+   *  reduce to the same room name, so it is safe to use as a React key. */
+  id: string;
   name: string;
   devices: RoomDevice[];
 }
@@ -36,16 +39,25 @@ export function groupRooms(
   }
 
   function findHubByName(name: string): string {
+    let match = "";
+    let matchLength = -1;
     for (const [hubId, room] of hubMap) {
-      if (name.startsWith(room)) return hubId;
+      if (name.startsWith(room) && room.length > matchLength) {
+        match = hubId;
+        matchLength = room.length;
+      }
     }
-    return "";
+    return match;
   }
 
   const roomMap = new Map<string, RoomDevice[]>();
   function add(key: string, device: Device | InfraredDevice, isInfrared: boolean) {
-    if (!roomMap.has(key)) roomMap.set(key, []);
-    roomMap.get(key)!.push({ device, isInfrared });
+    let devices = roomMap.get(key);
+    if (!devices) {
+      devices = [];
+      roomMap.set(key, devices);
+    }
+    devices.push({ device, isInfrared });
   }
 
   for (const d of devices) {
@@ -63,7 +75,7 @@ export function groupRooms(
   const rooms: Room[] = [];
   for (const [key, devs] of roomMap) {
     const name = key ? hubMap.get(key) || key : fallback;
-    rooms.push({ name, devices: devs });
+    rooms.push({ id: key, name, devices: devs });
   }
   rooms.sort((a, b) => {
     if (a.name === fallback) return 1;

@@ -12,7 +12,7 @@ import { PhysicalControls } from "./PhysicalControls";
 interface Props {
   device: Device | InfraredDevice;
   isInfrared: boolean;
-  onClose: (updatedStatus?: DeviceStatus | null) => void;
+  onClose: () => void;
   onToast: ToastFn;
 }
 
@@ -21,23 +21,30 @@ export function DeviceDetail({ device, isInfrared, onClose, onToast }: Props) {
   const [loading, setLoading] = useState(!isInfrared);
   const { sending, send: sendRaw } = useSendCommand(device.deviceId, onToast);
   const refetchTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const mounted = useRef(true);
 
-  useModalClose(() => onClose(status));
-  useEffect(() => () => clearTimeout(refetchTimer.current), []);
+  useModalClose(onClose);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      clearTimeout(refetchTimer.current);
+    };
+  }, []);
 
   const fetchStatus = useCallback(async () => {
     if (isInfrared) return;
     try {
       setLoading(true);
       const res = await getDeviceStatus(device.deviceId);
-      if (res.statusCode === 100) setStatus(res.body);
+      if (mounted.current && res.statusCode === 100) setStatus(res.body);
     } catch (e) {
       // Unauthorized is handled globally; avoid a misleading failure toast.
-      if (!(e instanceof UnauthorizedError)) {
+      if (mounted.current && !(e instanceof UnauthorizedError)) {
         onToast(t("device.fetchStatusFailed"), "error");
       }
     } finally {
-      setLoading(false);
+      if (mounted.current) setLoading(false);
     }
   }, [device.deviceId, isInfrared, onToast]);
 
@@ -46,10 +53,15 @@ export function DeviceDetail({ device, isInfrared, onClose, onToast }: Props) {
   }, [fetchStatus]);
 
   const send: SendFn = async (command, parameter, commandType) => {
-    if (await sendRaw(command, parameter, commandType)) {
-      onToast(`${device.deviceName}: ${command}`, "success");
-      if (!isInfrared) refetchTimer.current = setTimeout(fetchStatus, 1000);
+    const succeeded = await sendRaw(command, parameter, commandType);
+    if (!succeeded || !mounted.current) return succeeded;
+
+    onToast(`${device.deviceName}: ${command}`, "success");
+    if (!isInfrared) {
+      clearTimeout(refetchTimer.current);
+      refetchTimer.current = setTimeout(fetchStatus, 1000);
     }
+    return true;
   };
 
   const typeLabel = getTypeLabel(device);
@@ -57,10 +69,10 @@ export function DeviceDetail({ device, isInfrared, onClose, onToast }: Props) {
   const statusItems = buildStatusItems(status);
 
   return (
-    <div className="modal-overlay" onClick={() => onClose(status)}>
+    <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <button className="modal-close" onClick={() => onClose(status)}>
+          <button className="modal-close" onClick={onClose}>
             ✕
           </button>
           <div className="modal-device-icon">{getDeviceIcon(typeLabel)}</div>

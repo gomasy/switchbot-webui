@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { sendCommand, UnauthorizedError } from "./api";
 import { t, tFmt } from "./i18n";
+import { readStorage, writeStorage } from "./storage";
 import type { ToastFn, ToastType } from "./types";
 
 export interface Toast {
@@ -80,10 +81,12 @@ export function useSendCommand(deviceId: string, onToast: ToastFn) {
 
 export function useStoredState<T>(key: string, fallback: T) {
   const [value, setValue] = useState<T>(() => {
+    const raw = readStorage(key);
+    if (!raw) return fallback;
     try {
-      const v = localStorage.getItem(key);
-      return v ? JSON.parse(v) : fallback;
+      return JSON.parse(raw) as T;
     } catch {
+      // A value written by an older version may no longer parse.
       return fallback;
     }
   });
@@ -91,11 +94,7 @@ export function useStoredState<T>(key: string, fallback: T) {
   const set = useCallback(
     (next: T) => {
       setValue(next);
-      try {
-        localStorage.setItem(key, JSON.stringify(next));
-      } catch {
-        // ignore
-      }
+      writeStorage(key, JSON.stringify(next));
     },
     [key],
   );

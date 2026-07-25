@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { normalizeStatusCase } from "./status";
 import type { DeviceStatus } from "./types";
 
 /** A subset of DeviceStatus derived from a webhook, always carrying deviceId. */
@@ -33,18 +34,17 @@ export function normalizeWebhook(ctx: Record<string, unknown>): StatusUpdate | n
   copyStr("openState");
   copyStr("workingStatus");
   copyStr("onlineStatus");
+  copyStr("lockState");
+  copyStr("doorState");
+  // Webhooks name it powerState; a few payloads use power. Copy powerState
+  // last so it wins when both are present.
+  copyStr("power");
+  copyStr("powerState", "power");
 
-  // SwitchBot reports power as "ON"/"OFF"; the UI compares against "on".
-  const power =
-    (typeof ctx.powerState === "string" ? ctx.powerState : null) ??
-    (typeof ctx.power === "string" ? ctx.power : null);
-  if (power) out.power = power.toLowerCase();
-  const lockState = typeof ctx.lockState === "string" ? ctx.lockState : null;
-  if (lockState) out.lockState = lockState.toLowerCase();
   const detectionState = typeof ctx.detectionState === "string" ? ctx.detectionState : null;
   if (detectionState) out.moveDetected = detectionState === "DETECTED";
 
-  return out;
+  return normalizeStatusCase(out);
 }
 
 const MAX_BACKOFF_MS = 30_000;
@@ -57,9 +57,12 @@ const MAX_BACKOFF_MS = 30_000;
 export function useRealtime(
   enabled: boolean,
   onUpdate: (update: StatusUpdate) => void,
+  onReconnect: () => void,
 ): void {
   const onUpdateRef = useRef(onUpdate);
+  const onReconnectRef = useRef(onReconnect);
   onUpdateRef.current = onUpdate;
+  onReconnectRef.current = onReconnect;
 
   useEffect(() => {
     if (!enabled) return;
@@ -68,16 +71,24 @@ export function useRealtime(
     let stopped = false;
     let attempt = 0;
     let timer: number | undefined;
+    let needsResync = false;
 
     const connect = () => {
       if (stopped) return;
       const proto = location.protocol === "https:" ? "wss" : "ws";
-      socket = new WebSocket(`${proto}://${location.host}/ws`);
+      // Bind handlers to this socket, not to the mutable `socket` slot, so a
+      // late event from a replaced socket cannot close its successor.
+      const ws = new WebSocket(`${proto}://${location.host}/ws`);
+      socket = ws;
 
-      socket.onopen = () => {
+      ws.onopen = () => {
+        // Events are dropped while disconnected, so a resumed connection has
+        // to re-read every status rather than trust what is on screen.
+        if (needsResync) onReconnectRef.current();
+        needsResync = false;
         attempt = 0;
       };
-      socket.onmessage = (ev) => {
+      ws.onmessage = (ev) => {
         try {
           const update = normalizeWebhook(JSON.parse(ev.data));
           if (update) onUpdateRef.current(update);
@@ -85,13 +96,14 @@ export function useRealtime(
           // Ignore malformed frames.
         }
       };
-      socket.onclose = () => {
+      ws.onclose = () => {
         if (stopped) return;
+        needsResync = true;
         const delay = Math.min(MAX_BACKOFF_MS, 1000 * 2 ** attempt);
         attempt += 1;
         timer = window.setTimeout(connect, delay);
       };
-      socket.onerror = () => socket?.close();
+      ws.onerror = () => ws.close();
     };
 
     connect();

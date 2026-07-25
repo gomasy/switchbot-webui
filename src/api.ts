@@ -1,4 +1,5 @@
 import { t } from "./i18n";
+import { normalizeStatusCase } from "./status";
 import type { ApiResponse, DeviceListBody, DeviceStatus, Scene } from "./types";
 
 export class UnauthorizedError extends Error {
@@ -40,7 +41,8 @@ export async function login(token: string): Promise<boolean> {
 
 /** Clear the auth cookie, ending the current session. */
 export async function logout(): Promise<void> {
-  await fetch("/auth/logout", { method: "POST" });
+  const res = await fetch("/auth/logout", { method: "POST" });
+  if (!res.ok) throw new Error(`logout: ${res.status}`);
 }
 
 export interface AppConfig {
@@ -69,8 +71,10 @@ export function getDevices() {
   return request<DeviceListBody>("/v1.1/devices");
 }
 
-export function getDeviceStatus(deviceId: string) {
-  return request<DeviceStatus>(`/v1.1/devices/${deviceId}/status`);
+export async function getDeviceStatus(deviceId: string) {
+  const res = await request<DeviceStatus>(`/v1.1/devices/${deviceId}/status`);
+  if (res.body) normalizeStatusCase(res.body);
+  return res;
 }
 
 export function sendCommand(

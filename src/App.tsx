@@ -12,6 +12,7 @@ import { useToasts } from "./hooks";
 import { useRealtime } from "./realtime";
 import { t, tFmt } from "./i18n";
 import { groupRooms, type RoomDevice } from "./rooms";
+import { readStorage, writeStorage } from "./storage";
 import type { Device, DeviceStatus, InfraredDevice, Scene } from "./types";
 import { Header } from "./components/Header";
 import { DeviceCard } from "./components/DeviceCard";
@@ -22,7 +23,7 @@ import { SceneList } from "./components/SceneList";
 type Tab = "home" | "scenes";
 
 function getInitialTheme(): boolean {
-  const saved = localStorage.getItem("theme");
+  const saved = readStorage("theme");
   if (saved) return saved === "dark";
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
@@ -39,6 +40,7 @@ export function App() {
   const [executingScene, setExecutingScene] = useState<string | null>(null);
   const [deviceStatuses, setDeviceStatuses] = useState<Record<string, DeviceStatus>>({});
   const [refreshSignal, setRefreshSignal] = useState(0);
+  const [deviceRefresh, setDeviceRefresh] = useState<Record<string, number>>({});
   const [needsLogin, setNeedsLogin] = useState(false);
   const [authEnabled, setAuthEnabled] = useState(false);
   const [realtime, setRealtime] = useState(false);
@@ -47,7 +49,7 @@ export function App() {
   useEffect(() => {
     const theme = darkMode ? "dark" : "light";
     document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("theme", theme);
+    writeStorage("theme", theme);
   }, [darkMode]);
 
   // Any request rejected with our auth 401 flips the app to the login screen.
@@ -68,16 +70,29 @@ export function App() {
 
   // Merge realtime device updates into the shared status map; DeviceCard picks
   // them up via externalStatus. Paused while the login screen is shown.
-  useRealtime(realtime && !needsLogin, (update) => {
-    setDeviceStatuses((prev) => ({
-      ...prev,
-      [update.deviceId]: { ...prev[update.deviceId], ...update } as DeviceStatus,
-    }));
-  });
+  useRealtime(
+    realtime && !needsLogin,
+    (update) => {
+      setDeviceStatuses((prev) => ({
+        ...prev,
+        // Keep only the latest partial event. DeviceCard merges it into its
+        // fetched state, without reviving stale fields from earlier events.
+        [update.deviceId]: update as DeviceStatus,
+      }));
+    },
+    () => {
+      setDeviceStatuses({});
+      setRefreshSignal((n) => n + 1);
+    },
+  );
 
   const handleLogout = async () => {
-    await logout();
-    setNeedsLogin(true);
+    try {
+      await logout();
+      setNeedsLogin(true);
+    } catch {
+      addToast(t("app.logoutFailed"), "error");
+    }
   };
 
   const rooms = useMemo(() => groupRooms(devices, irDevices), [devices, irDevices]);
@@ -89,25 +104,32 @@ export function App() {
     setError(null);
     lastFetch.current = Date.now();
     setRefreshSignal((n) => n + 1);
-    try {
-      const [devRes, sceneRes] = await Promise.all([getDevices(), getScenes()]);
-      if (devRes.statusCode === 100) {
-        setDevices(devRes.body.deviceList || []);
-        setIrDevices(devRes.body.infraredRemoteList || []);
-      } else {
-        setError(devRes.message || t("app.fetchDevicesFailed"));
-      }
-      if (sceneRes.statusCode === 100) {
-        setScenes(sceneRes.body || []);
-      }
-    } catch (e) {
+    // Settled, not all: a failing scene list must not blank out the devices.
+    const [devicesResult, scenesResult] = await Promise.allSettled([
+      getDevices(),
+      getScenes(),
+    ]);
+
+    if (devicesResult.status === "rejected") {
       // Unauthorized is handled globally via setUnauthorizedHandler.
+      const e = devicesResult.reason;
       if (!(e instanceof UnauthorizedError)) {
         setError(e instanceof Error ? e.message : t("app.connectionFailed"));
       }
-    } finally {
-      setLoading(false);
+    } else if (devicesResult.value.statusCode === 100) {
+      setDevices(devicesResult.value.body.deviceList || []);
+      setIrDevices(devicesResult.value.body.infraredRemoteList || []);
+    } else {
+      setError(devicesResult.value.message || t("app.fetchDevicesFailed"));
     }
+
+    if (
+      scenesResult.status === "fulfilled" &&
+      scenesResult.value.statusCode === 100
+    ) {
+      setScenes(scenesResult.value.body || []);
+    }
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -194,7 +216,7 @@ export function App() {
       );
     }
     return rooms.map((room) => (
-      <div key={room.name} className="room-section">
+      <div key={room.id} className="room-section">
         <div className="section-title">{room.name}</div>
         <div className="device-grid">
           {room.devices.map(({ device, isInfrared }) => (
@@ -203,7 +225,9 @@ export function App() {
               device={device}
               isInfrared={isInfrared}
               externalStatus={deviceStatuses[device.deviceId]}
-              refreshSignal={refreshSignal}
+              // A card re-fetches when the global signal or its own counter
+              // changes; both only increase, so their sum is a valid signal.
+              refreshSignal={refreshSignal + (deviceRefresh[device.deviceId] ?? 0)}
               onClick={() => setSelectedDevice({ device, isInfrared })}
               onToast={addToast}
             />
@@ -246,11 +270,19 @@ export function App() {
         <DeviceDetail
           device={selectedDevice.device}
           isInfrared={selectedDevice.isInfrared}
-          onClose={(updatedStatus) => {
-            if (updatedStatus) {
-              setDeviceStatuses((prev) => ({
+          onClose={() => {
+            const deviceId = selectedDevice.device.deviceId;
+            setDeviceStatuses((prev) => {
+              const next = { ...prev };
+              delete next[deviceId];
+              return next;
+            });
+            // Only the device that was open can have changed. Refreshing every
+            // card here would burn the SwitchBot daily request quota.
+            if (!selectedDevice.isInfrared) {
+              setDeviceRefresh((prev) => ({
                 ...prev,
-                [selectedDevice.device.deviceId]: updatedStatus,
+                [deviceId]: (prev[deviceId] ?? 0) + 1,
               }));
             }
             setSelectedDevice(null);

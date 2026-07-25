@@ -9,6 +9,7 @@
   "app.executeSceneFailed": "Failed to execute scene",
   "app.fetchDevicesFailed": "Failed to fetch devices",
   "app.loadingDevices": "Loading devices...",
+  "app.logoutFailed": "Failed to log out",
   "app.noDevices": "No devices found",
   "app.retry": "Retry",
   "app.sceneExecuted": "Scene executed",
@@ -88,6 +89,7 @@
   "status.powerToday": "Power today",
   "status.temperature": "Temperature",
   "status.unlocked": "Unlocked",
+  "status.unknown": "Unknown",
   "status.voltage": "Voltage",
   "status.workingStatus": "Status"
 }

@@ -68,6 +68,7 @@ export function PhysicalControls({ controls, status, send, sending }: Props) {
             min={0}
             max={100}
             value={brightness}
+            disabled={sending}
             onChange={setBrightness}
             onCommit={() => send("setBrightness", brightness)}
           />
@@ -97,6 +98,7 @@ export function PhysicalControls({ controls, status, send, sending }: Props) {
             max={6500}
             step={100}
             value={colorTemp}
+            disabled={sending}
             onChange={setColorTemp}
             onCommit={() => send("setColorTemperature", colorTemp)}
           />
@@ -111,6 +113,7 @@ export function PhysicalControls({ controls, status, send, sending }: Props) {
             min={0}
             max={100}
             value={position}
+            disabled={sending}
             onChange={setPosition}
             onCommit={() => send("setPosition", `0,ff,${position}`)}
           />
@@ -164,6 +167,7 @@ export function PhysicalControls({ controls, status, send, sending }: Props) {
             min={0}
             max={100}
             value={humidity}
+            disabled={sending}
             onChange={setHumidity}
             onCommit={() => send("setMode", `${humidity}`)}
           />

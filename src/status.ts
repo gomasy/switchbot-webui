@@ -1,6 +1,29 @@
 import { t } from "./i18n";
 import type { DeviceStatus } from "./types";
 
+/**
+ * State fields SwitchBot reports with inconsistent casing: the status API
+ * answers "ON"/"LOCKED" for some device types while webhooks answer "on".
+ * Everything downstream compares against the lowercase form.
+ */
+const LOWERCASED_FIELDS = ["power", "lockState", "doorState", "openState"] as const;
+
+/** Fold the casing of state fields as a status enters the app. Mutates in place. */
+export function normalizeStatusCase<T extends Partial<DeviceStatus>>(status: T): T {
+  for (const field of LOWERCASED_FIELDS) {
+    const value = status[field];
+    if (typeof value === "string") status[field] = value.toLowerCase();
+  }
+  return status;
+}
+
+/** Lock states other than locked/unlocked (notably "jammed") need attention. */
+function lockLabel(lockState: string, locked: string, unlocked: string, other: string) {
+  if (lockState === "locked") return locked;
+  if (lockState === "unlocked") return unlocked;
+  return other;
+}
+
 export function formatStatusSummary(status: DeviceStatus | null): string {
   if (!status) return "";
   const parts: string[] = [];
@@ -9,7 +32,8 @@ export function formatStatusSummary(status: DeviceStatus | null): string {
     parts.push(`${status.temperature}°C`);
   if (typeof status.humidity === "number") parts.push(`${status.humidity}%`);
   if (typeof status.battery === "number") parts.push(`🔋${status.battery}%`);
-  if (status.lockState) parts.push(status.lockState === "locked" ? "🔒" : "🔓");
+  if (status.lockState)
+    parts.push(lockLabel(status.lockState, "🔒", "🔓", "⚠️"));
   if (
     typeof status.brightness === "number" &&
     typeof status.temperature !== "number"
@@ -43,7 +67,12 @@ export function buildStatusItems(status: DeviceStatus | null): StatusItem[] {
   if (status.lockState)
     items.push({
       label: t("status.lock"),
-      value: status.lockState === "locked" ? t("status.locked") : t("status.unlocked"),
+      value: lockLabel(
+        status.lockState,
+        t("status.locked"),
+        t("status.unlocked"),
+        t("status.unknown"),
+      ),
     });
   if (status.doorState)
     items.push({

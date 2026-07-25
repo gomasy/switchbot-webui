@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getDeviceStatus } from "../api";
 import { getControls, getDeviceIcon, getTypeLabel } from "../deviceRegistry";
 import { useSendCommand } from "../hooks";
@@ -24,15 +24,28 @@ export function DeviceCard({
   onToast,
 }: Props) {
   const [status, setStatus] = useState<DeviceStatus | null>(null);
+  const externalStatusRef = useRef(externalStatus);
+  externalStatusRef.current = externalStatus;
   const { send } = useSendCommand(device.deviceId, onToast);
 
   useEffect(() => {
     if (isInfrared) return;
+    let cancelled = false;
+    const externalAtStart = externalStatusRef.current;
     getDeviceStatus(device.deviceId)
       .then((res) => {
-        if (res.statusCode === 100) setStatus(res.body);
+        if (cancelled || res.statusCode !== 100) return;
+        const latestExternal = externalStatusRef.current;
+        setStatus(
+          latestExternal !== externalAtStart
+            ? { ...res.body, ...latestExternal }
+            : res.body,
+        );
       })
       .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [device.deviceId, isInfrared, refreshSignal]);
 
   // Merge (not replace): realtime webhook updates are partial, so keep any

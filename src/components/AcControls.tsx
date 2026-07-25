@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useStoredState } from "../hooks";
 import { t } from "../i18n";
 import type { InfraredDevice } from "../types";
@@ -46,20 +47,28 @@ export function AcControls({ device, send, sending }: Props) {
     `ac-state-${device.deviceId}`,
     {},
   );
-  const ac: AcState = { ...AC_DEFAULT, ...stored };
+  // While the slider is being dragged its value is a draft: it is only stored
+  // once the command succeeds, so a failed send reverts to the known state.
+  const [tempDraft, setTempDraft] = useState<number | null>(null);
+  const saved: AcState = { ...AC_DEFAULT, ...stored };
+  const ac: AcState = tempDraft === null ? saved : { ...saved, temp: tempDraft };
 
-  const update = (patch: Partial<AcState>) => setStored({ ...ac, ...patch });
-  const sendAc = (next: AcState) => {
+  const commit = (next: AcState) => {
     setStored(next);
-    send(
+    setTempDraft(null);
+  };
+  const sendAc = async (next: AcState) => {
+    const ok = await send(
       "setAll",
       `${next.temp},${next.mode},${next.fan},${next.power ? "on" : "off"}`,
     );
+    if (ok) setStored(next);
+    setTempDraft(null);
   };
   const updateAndSendIfOn = (patch: Partial<AcState>) => {
     const next = { ...ac, ...patch };
     if (ac.power) sendAc(next);
-    else setStored(next);
+    else commit(next);
   };
 
   return (
@@ -76,9 +85,11 @@ export function AcControls({ device, send, sending }: Props) {
           min={16}
           max={30}
           value={ac.temp}
-          onChange={(temp) => update({ temp })}
+          disabled={sending}
+          onChange={setTempDraft}
           onCommit={() => {
             if (ac.power) sendAc(ac);
+            else commit(ac);
           }}
         />
       </ControlSection>

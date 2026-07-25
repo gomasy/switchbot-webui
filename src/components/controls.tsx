@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 
 /** Send a command to a device (parameter/commandType default to "default"/"command"). */
@@ -5,7 +6,7 @@ export type SendFn = (
   command: string,
   parameter?: unknown,
   commandType?: string,
-) => void;
+) => Promise<boolean>;
 
 export function ControlSection({
   title,
@@ -79,6 +80,7 @@ export function Slider({
   value,
   onChange,
   onCommit,
+  disabled = false,
 }: {
   label: string;
   valueLabel: string;
@@ -88,7 +90,14 @@ export function Slider({
   value: number;
   onChange: (value: number) => void;
   onCommit: () => void;
+  disabled?: boolean;
 }) {
+  const [dragging, setDragging] = useState(false);
+  const endDrag = () => {
+    setDragging(false);
+    onCommit();
+  };
+
   return (
     <div className="slider-control">
       <div className="slider-header">
@@ -101,8 +110,13 @@ export function Slider({
         max={max}
         step={step}
         value={value}
+        // Never disable mid-drag: a disabled input stops firing pointerup, so
+        // the value the user already moved would never be committed.
+        disabled={disabled && !dragging}
         onChange={(e) => onChange(Number(e.target.value))}
-        onPointerUp={onCommit}
+        onPointerDown={() => setDragging(true)}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
         onKeyUp={(e) => {
           if (SLIDER_KEYS.has(e.key)) onCommit();
         }}
