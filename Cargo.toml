@@ -6,6 +6,7 @@ edition = "2024"
 axum = { version = "0.8.9", features = ["ws"] }
 base64 = "0.23.0"
 dotenvy = "0.15.7"
+getrandom = "0.4.3"
 hmac = "0.13"
 reqwest = "0.13.4"
 serde_json = "1.0.151"

@@ -7,7 +7,7 @@ use axum::{
     },
     http::{
         HeaderMap, HeaderValue, Method, StatusCode,
-        header::{CONTENT_TYPE, COOKIE, SET_COOKIE, WWW_AUTHENTICATE},
+        header::{CONTENT_TYPE, COOKIE, HOST, ORIGIN, SET_COOKIE, WWW_AUTHENTICATE},
     },
     response::{IntoResponse, Response},
     routing::{any, get, post},
@@ -44,6 +44,16 @@ const SWITCHBOT_API: &str = "https://api.switch-bot.com";
 const JSON_CT: &str = "application/json";
 const MAX_BODY_BYTES: usize = 1024 * 1024;
 const DEFAULT_CACHE_TTL_SECS: u64 = 5;
+/// Upper bound on cached devices. Webhook payloads are unauthenticated, so a
+/// forged deviceMac must not be able to grow the cache without limit.
+const MAX_CACHE_ENTRIES: usize = 512;
+/// How long a session stays usable. Sessions are kept in memory only, so a
+/// restart ends them as well.
+const SESSION_TTL: Duration = Duration::from_secs(30 * 24 * 60 * 60);
+/// Delay after a failed login, doubled per consecutive failure. Attempts are
+/// serialized, so this is the real cost of a guess.
+const LOGIN_BASE_DELAY: Duration = Duration::from_millis(500);
+const LOGIN_MAX_DELAY: Duration = Duration::from_secs(30);
 /// Directory the built frontend is served from.
 const DIST_DIR: &str = "dist";
 /// Top-level paths the app router owns, including everything nested under them.
@@ -71,15 +81,60 @@ struct Slot {
     generation: u64,
 }
 
+/// SHA-256 of the value carried in an auth cookie. Only the digest is stored,
+/// so nothing in memory can be replayed as a session cookie.
+type SessionId = [u8; 32];
+
+/// What authorizing a request established about the caller.
+enum Session {
+    /// Authentication is disabled; there is nothing to revoke.
+    Open,
+    /// Authenticated by a session that a logout can end.
+    Active(SessionId),
+}
+
+/// Live login sessions and their expiry, keyed by the digest of the cookie
+/// value each client holds. In memory only, so a restart logs everyone out.
+#[derive(Default)]
+struct Sessions(Mutex<HashMap<SessionId, Instant>>);
+
+impl Sessions {
+    /// True when this id names a session that has not expired yet. Reads only:
+    /// entries are reaped by `start`, so the request path never pays for a
+    /// scan of every session just to answer one membership question.
+    fn is_live(&self, id: &SessionId) -> bool {
+        lock(&self.0)
+            .get(id)
+            .is_some_and(|expires| *expires > Instant::now())
+    }
+
+    /// Register a session and drop any that have expired. Logging in is the
+    /// only way entries are added, so pruning here bounds the map.
+    fn start(&self, id: SessionId) {
+        let now = Instant::now();
+        let mut sessions = lock(&self.0);
+        sessions.retain(|_, expires| *expires > now);
+        sessions.insert(id, now + SESSION_TTL);
+    }
+
+    fn revoke(&self, ids: impl Iterator<Item = SessionId>) {
+        let mut sessions = lock(&self.0);
+        for id in ids {
+            sessions.remove(&id);
+        }
+    }
+}
+
 struct AppState {
     token: HeaderValue,
     secret: String,
     client: reqwest::Client,
     /// SHA-256 hash (base64url) of AUTH_TOKEN. None disables authentication.
     auth_hash: Option<String>,
-    /// Set-Cookie value issued on a successful login. Built once at startup so
-    /// the request path never has to re-validate a constant string.
-    auth_cookie: Option<HeaderValue>,
+    sessions: Sessions,
+    /// Consecutive failed logins, behind an async mutex so attempts are handled
+    /// one at a time and cannot be guessed in parallel.
+    login_gate: tokio::sync::Mutex<u32>,
     /// True when a webhook URL is configured, so the frontend opens a WebSocket.
     realtime: bool,
     /// Broadcast channel fanning webhook events out to all WebSocket clients.
@@ -105,35 +160,112 @@ fn eq_hashed(a: &str, b: &str) -> bool {
     Sha256::digest(a.as_bytes()) == Sha256::digest(b.as_bytes())
 }
 
-fn is_authorized(state: &AppState, headers: &HeaderMap) -> bool {
-    let Some(expected) = &state.auth_hash else {
-        return true;
-    };
+fn session_id(cookie_value: &str) -> SessionId {
+    Sha256::digest(cookie_value.as_bytes()).into()
+}
+
+/// The value of every `auth=` cookie on the request.
+fn auth_cookies(headers: &HeaderMap) -> impl Iterator<Item = &str> {
     headers
         .get_all(COOKIE)
         .iter()
         .filter_map(|v| v.to_str().ok())
         .flat_map(|s| s.split(';'))
         .filter_map(|kv| kv.trim().strip_prefix("auth="))
-        .any(|v| eq_hashed(v, expected))
 }
 
-/// Verify the token against AUTH_TOKEN and issue an auth cookie on match.
-/// The cookie stores the hash, not the raw token.
+/// Establish who the caller is. None when authentication is enabled and the
+/// request carries no live session cookie.
+fn authorize(state: &AppState, headers: &HeaderMap) -> Option<Session> {
+    if state.auth_hash.is_none() {
+        return Some(Session::Open);
+    }
+    auth_cookies(headers)
+        .map(session_id)
+        .find(|id| state.sessions.is_live(id))
+        .map(Session::Active)
+}
+
+/// Mint a session cookie and record its digest. None when the platform RNG
+/// fails, which the caller reports as a server error rather than handing out a
+/// predictable session.
+fn start_session(sessions: &Sessions) -> Option<HeaderValue> {
+    let mut bytes = [0u8; 32];
+    getrandom::fill(&mut bytes).ok()?;
+    let value = URL_SAFE_NO_PAD.encode(bytes);
+    let max_age = SESSION_TTL.as_secs();
+    let cookie = format!("auth={value}; Path=/; Max-Age={max_age}; HttpOnly; SameSite=Lax");
+    let cookie = HeaderValue::from_str(&cookie).ok()?;
+
+    sessions.start(session_id(&value));
+    Some(cookie)
+}
+
+/// True unless a browser marked this request as cross-site. Browsers set
+/// `Sec-Fetch-Site` on every fetch and a page cannot forge it, so it is a
+/// reliable CSRF guard. Clients that send neither header (curl, scripts) are
+/// allowed through: they carry no ambient cookie for an attacker to borrow.
+fn same_origin(headers: &HeaderMap) -> bool {
+    if let Some(site) = headers.get("sec-fetch-site").and_then(|v| v.to_str().ok()) {
+        return matches!(site, "same-origin" | "none");
+    }
+    // Browsers predating Sec-Fetch-Site still send Origin on cross-site
+    // requests; compare it with the host the request was addressed to.
+    let Some(origin) = headers.get(ORIGIN).and_then(|v| v.to_str().ok()) else {
+        return true;
+    };
+    headers
+        .get(HOST)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|host| origin.split_once("://").map(|(_, rest)| rest == host))
+        .unwrap_or(false)
+}
+
+/// Refuse state-changing requests a browser reports as cross-site, so no
+/// handler has to remember the check and a new route cannot forget it. Reads
+/// pass through: without CORS headers their responses stay unreadable anyway.
+async fn reject_cross_site(req: Request<Body>, next: axum::middleware::Next) -> Response {
+    if !matches!(*req.method(), Method::GET | Method::HEAD) && !same_origin(req.headers()) {
+        return error_response(StatusCode::FORBIDDEN);
+    }
+    next.run(req).await
+}
+
+/// Verify the token against AUTH_TOKEN and start a session on match. The cookie
+/// carries a fresh random value, so it can be revoked without changing
+/// AUTH_TOKEN and never encodes the token itself.
 async fn login(State(state): State<Arc<AppState>>, body: String) -> Response {
-    let (Some(expected), Some(cookie)) = (&state.auth_hash, &state.auth_cookie) else {
+    let Some(expected) = &state.auth_hash else {
         return error_response(StatusCode::NOT_FOUND);
     };
+
+    // One attempt at a time: the delay below only costs an attacker anything if
+    // concurrent guesses have to queue behind it.
+    let mut failures = state.login_gate.lock().await;
     if !eq_hashed(&hash_token(body.trim()), expected) {
-        // Delay on failure to slow down brute-force attempts
-        tokio::time::sleep(Duration::from_millis(500)).await;
+        *failures = failures.saturating_add(1);
+        let delay = LOGIN_BASE_DELAY
+            .saturating_mul(1 << (*failures - 1).min(6))
+            .min(LOGIN_MAX_DELAY);
+        // Sleep while still holding the gate so the next attempt waits too.
+        tokio::time::sleep(delay).await;
         return error_response(StatusCode::UNAUTHORIZED);
     }
-    (StatusCode::NO_CONTENT, [(SET_COOKIE, cookie.clone())]).into_response()
+    *failures = 0;
+    drop(failures);
+
+    let Some(cookie) = start_session(&state.sessions) else {
+        return error_response(StatusCode::INTERNAL_SERVER_ERROR);
+    };
+    (StatusCode::NO_CONTENT, [(SET_COOKIE, cookie)]).into_response()
 }
 
-/// Clear the auth cookie so a shared device can end its session.
-async fn logout() -> Response {
+/// Clear the auth cookie and drop the session server-side, so logging out on a
+/// shared device also stops any other client replaying that cookie.
+async fn logout(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Response {
+    state
+        .sessions
+        .revoke(auth_cookies(&headers).map(session_id));
     let cookie = "auth=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax";
     (
         StatusCode::NO_CONTENT,
@@ -182,6 +314,16 @@ fn auth_headers(state: &AppState) -> Option<HeaderMap> {
     Some(headers)
 }
 
+/// SwitchBot device identifiers are short MAC-like strings. Anything else is
+/// refused so a forged webhook cannot choose arbitrary cache keys.
+fn valid_device_key(key: &str) -> bool {
+    !key.is_empty()
+        && key.len() <= 32
+        && key
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b':' || b == b'-')
+}
+
 /// If this GET targets `/v1.1/devices/{id}/status`, return its deviceId so the
 /// response can be served from / stored in the short-lived status cache. `path`
 /// is the upstream path (with the `/api` prefix already stripped); any query
@@ -193,7 +335,7 @@ fn status_cache_key(method: &Method, path: &str) -> Option<String> {
     let path = path.split_once('?').map_or(path, |(head, _)| head);
     path.strip_prefix("/v1.1/devices/")
         .and_then(|s| s.strip_suffix("/status"))
-        .filter(|id| !id.is_empty() && !id.contains('/'))
+        .filter(|id| valid_device_key(id))
         .map(str::to_owned)
 }
 
@@ -206,7 +348,7 @@ fn command_cache_key(method: &Method, path: &str) -> Option<String> {
     let path = path.split_once('?').map_or(path, |(head, _)| head);
     path.strip_prefix("/v1.1/devices/")
         .and_then(|s| s.strip_suffix("/commands"))
-        .filter(|id| !id.is_empty() && !id.contains('/'))
+        .filter(|id| valid_device_key(id))
         .map(str::to_owned)
 }
 
@@ -226,27 +368,36 @@ enum CacheLookup {
     Miss(u64),
 }
 
-/// Take the cache lock, recovering from poisoning: the guarded sections only
-/// touch a HashMap, so a panic elsewhere cannot leave it half-updated, and
-/// dropping status caching is not worth failing a request over.
-fn lock_cache(state: &AppState) -> std::sync::MutexGuard<'_, HashMap<String, Slot>> {
-    state
-        .status_cache
+/// Take a lock, recovering from poisoning: the guarded sections only touch a
+/// map, so a panic elsewhere cannot leave one half-updated, and losing status
+/// caching or every session is not worth failing a request over.
+fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    mutex
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+/// Whether the cache will accept this key: already tracked, or still under the
+/// cap. Bounded because an unauthenticated webhook chooses some of these keys,
+/// and the cheap length test comes first so the common case costs no lookup.
+fn has_room(cache: &HashMap<String, Slot>, key: &str) -> bool {
+    cache.len() < MAX_CACHE_ENTRIES || cache.contains_key(key)
 }
 
 /// Drop the cached body and bump the generation, so any response already in
 /// flight for this device is recognized as stale and refused by `store_status`.
 fn invalidate_status(state: &AppState, key: &str) {
-    let mut cache = lock_cache(state);
+    let mut cache = lock(&state.status_cache);
+    if !has_room(&cache, key) {
+        return;
+    }
     let slot = cache.entry(key.to_string()).or_default();
     slot.generation = slot.generation.wrapping_add(1);
     slot.entry = None;
 }
 
 fn lookup_status(state: &AppState, key: &str, ttl: Duration) -> CacheLookup {
-    let cache = lock_cache(state);
+    let cache = lock(&state.status_cache);
     let Some(slot) = cache.get(key) else {
         return CacheLookup::Miss(0);
     };
@@ -259,7 +410,10 @@ fn lookup_status(state: &AppState, key: &str, ttl: Duration) -> CacheLookup {
 /// Store a fetched status, unless the device was invalidated while the request
 /// was in flight — that response predates the change and must not be cached.
 fn store_status(state: &AppState, key: String, generation: u64, body: Vec<u8>) {
-    let mut cache = lock_cache(state);
+    let mut cache = lock(&state.status_cache);
+    if !has_room(&cache, &key) {
+        return;
+    }
     let slot = cache.entry(key).or_default();
     if slot.generation == generation {
         slot.entry = Some(CacheEntry {
@@ -271,7 +425,7 @@ fn store_status(state: &AppState, key: String, generation: u64, body: Vec<u8>) {
 
 async fn api_proxy(State(state): State<Arc<AppState>>, req: Request<Body>) -> Response {
     let (parts, body) = req.into_parts();
-    if !is_authorized(&state, &parts.headers) {
+    if authorize(&state, &parts.headers).is_none() {
         // Attach WWW-Authenticate only to our own auth rejection so the frontend
         // can distinguish it from an upstream SwitchBot API 401
         let mut resp = error_response(StatusCode::UNAUTHORIZED);
@@ -355,13 +509,13 @@ async fn ws_handler(
     headers: HeaderMap,
     ws: WebSocketUpgrade,
 ) -> Response {
-    if !is_authorized(&state, &headers) {
+    let Some(session) = authorize(&state, &headers) else {
         return error_response(StatusCode::UNAUTHORIZED);
-    }
-    ws.on_upgrade(move |socket| handle_socket(socket, state))
+    };
+    ws.on_upgrade(move |socket| handle_socket(socket, state, session))
 }
 
-async fn handle_socket(mut socket: WebSocket, state: Arc<AppState>) {
+async fn handle_socket(mut socket: WebSocket, state: Arc<AppState>, session: Session) {
     let mut rx = state.events.subscribe();
     let mut ping_interval = tokio::time::interval(Duration::from_secs(30));
     ping_interval.tick().await; // consume the immediate first tick
@@ -383,6 +537,14 @@ async fn handle_socket(mut socket: WebSocket, state: Arc<AppState>) {
                 Some(Err(_)) => break,
             },
             _ = ping_interval.tick() => {
+                // A logout has to end this stream too, not just future requests.
+                let revoked = match &session {
+                    Session::Open => false,
+                    Session::Active(id) => !state.sessions.is_live(id),
+                };
+                if revoked {
+                    break;
+                }
                 if socket.send(Message::Ping(Vec::new().into())).await.is_err() {
                     break;
                 }
@@ -393,6 +555,11 @@ async fn handle_socket(mut socket: WebSocket, state: Arc<AppState>) {
 
 /// Receive a SwitchBot webhook, forward the device context to WebSocket clients
 /// and drop the device's cached status so the next poll reflects the change.
+///
+/// SwitchBot does not sign its webhooks, so this endpoint cannot authenticate
+/// its caller. Everything that does not carry a plausible device identifier is
+/// therefore dropped before it can touch the cache or reach a browser; the
+/// frontend ignores updates without a deviceMac anyway.
 async fn webhook(State(state): State<Arc<AppState>>, body: Bytes) -> StatusCode {
     let Ok(payload) = serde_json::from_slice::<serde_json::Value>(&body) else {
         return StatusCode::BAD_REQUEST;
@@ -400,9 +567,13 @@ async fn webhook(State(state): State<Arc<AppState>>, body: Bytes) -> StatusCode 
     let Some(context) = payload.get("context") else {
         return StatusCode::NO_CONTENT;
     };
-    if let Some(mac) = context.get("deviceMac").and_then(|v| v.as_str()) {
-        invalidate_status(&state, mac);
+    let Some(mac) = context.get("deviceMac").and_then(|v| v.as_str()) else {
+        return StatusCode::NO_CONTENT;
+    };
+    if !valid_device_key(mac) {
+        return StatusCode::BAD_REQUEST;
     }
+    invalidate_status(&state, mac);
     if let Ok(text) = serde_json::to_string(context) {
         // Ignore the error when no clients are currently connected.
         let _ = state.events.send(text);
@@ -523,16 +694,14 @@ async fn main() {
         .ok()
         .and_then(|p| p.parse().ok())
         .unwrap_or(3000);
+    // Trimmed to match the login handler, which trims the submitted token —
+    // otherwise a padded AUTH_TOKEN could never be entered.
     let auth_hash = env::var("AUTH_TOKEN")
         .ok()
+        .map(|t| t.trim().to_string())
         .filter(|t| !t.is_empty())
         .map(|t| hash_token(&t));
     let auth_enabled = auth_hash.is_some();
-    let auth_cookie = auth_hash.as_ref().map(|hash| {
-        let cookie = format!("auth={hash}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax");
-        HeaderValue::from_str(&cookie)
-            .unwrap_or_else(|e| die(format!("failed to build the auth cookie: {e}")))
-    });
     let cache_ttl = Duration::from_secs(
         env::var("STATUS_CACHE_TTL")
             .ok()
@@ -555,24 +724,29 @@ async fn main() {
         secret,
         client,
         auth_hash,
-        auth_cookie,
+        sessions: Sessions::default(),
+        login_gate: tokio::sync::Mutex::new(0),
         realtime: webhook_settings.is_some(),
         events,
         status_cache: Mutex::new(HashMap::new()),
         cache_ttl,
     });
 
+    // Everything the browser talks to sits behind the cross-site guard. The
+    // webhook is added after the layer: SwitchBot calls it from outside, so it
+    // is the one route that must stay reachable cross-origin.
     let mut app = Router::new()
         .route("/auth/login", post(login))
         .route("/auth/logout", post(logout))
         .route("/config", get(config))
-        .route("/ws", get(ws_handler));
-    if let Some((_, path)) = &webhook_settings {
-        app = app.route(path, post(webhook));
-    }
-    let app = app
+        .route("/ws", get(ws_handler))
         .with_state(state.clone())
         .nest_service("/api/", any(api_proxy).with_state(state.clone()))
+        .layer(axum::middleware::from_fn(reject_cross_site));
+    if let Some((_, path)) = &webhook_settings {
+        app = app.route(path, post(webhook).with_state(state.clone()));
+    }
+    let app = app
         .nest_service("/locales", ServeDir::new("locales"))
         .fallback_service(
             ServeDir::new(DIST_DIR).fallback(ServeFile::new(format!("{DIST_DIR}/index.html"))),
@@ -665,6 +839,96 @@ mod tests {
         );
     }
 
+    #[test]
+    fn tracks_session_lifecycle() {
+        let sessions = Sessions::default();
+        let id = session_id("cookie-value");
+        assert!(!sessions.is_live(&id));
+
+        sessions.start(id);
+        assert!(sessions.is_live(&id));
+        // A different cookie must not ride along on someone else's session.
+        assert!(!sessions.is_live(&session_id("other-value")));
+
+        sessions.revoke([id].into_iter());
+        assert!(!sessions.is_live(&id));
+    }
+
+    #[test]
+    fn expires_sessions_and_reaps_them_on_the_next_login() {
+        let sessions = Sessions::default();
+        let stale = session_id("stale");
+        // Expired the instant it was recorded.
+        lock(&sessions.0).insert(stale, Instant::now());
+        assert!(!sessions.is_live(&stale));
+        assert_eq!(lock(&sessions.0).len(), 1, "reading must not mutate");
+
+        sessions.start(session_id("fresh"));
+        assert_eq!(
+            lock(&sessions.0).len(),
+            1,
+            "a login should have dropped the expired entry"
+        );
+    }
+
+    #[test]
+    fn caps_the_status_cache_without_locking_out_known_devices() {
+        let mut cache = HashMap::new();
+        for i in 0..MAX_CACHE_ENTRIES {
+            cache.insert(format!("device-{i}"), Slot::default());
+        }
+        // Full: a device that is already tracked still gets through, a new one
+        // (which a forged webhook could name) does not.
+        assert!(has_room(&cache, "device-0"));
+        assert!(!has_room(&cache, "device-new"));
+
+        cache.remove("device-0");
+        assert!(has_room(&cache, "device-new"));
+    }
+
+    #[test]
+    fn rejects_implausible_device_keys() {
+        assert!(valid_device_key("C1:2A:3B:4C:5D:6E"));
+        assert!(valid_device_key("device-1"));
+        assert!(!valid_device_key(""));
+        assert!(!valid_device_key("a/b"));
+        assert!(!valid_device_key("../../etc"));
+        assert!(!valid_device_key(&"a".repeat(33)));
+    }
+
+    fn headers(pairs: &[(&str, &str)]) -> HeaderMap {
+        let mut headers = HeaderMap::new();
+        for (name, value) in pairs {
+            let name = axum::http::HeaderName::from_bytes(name.as_bytes())
+                .unwrap_or_else(|e| panic!("test header name {name:?} is invalid: {e}"));
+            let value = HeaderValue::from_str(value)
+                .unwrap_or_else(|e| panic!("test header value {value:?} is invalid: {e}"));
+            headers.insert(name, value);
+        }
+        headers
+    }
+
+    #[test]
+    fn accepts_only_same_origin_state_changes() {
+        // Modern browsers: Sec-Fetch-Site decides on its own.
+        assert!(same_origin(&headers(&[("sec-fetch-site", "same-origin")])));
+        assert!(same_origin(&headers(&[("sec-fetch-site", "none")])));
+        assert!(!same_origin(&headers(&[("sec-fetch-site", "cross-site")])));
+        assert!(!same_origin(&headers(&[("sec-fetch-site", "same-site")])));
+        // A cross-site request cannot hide its Origin by dropping the fetch
+        // metadata header, because Origin alone still has to match Host.
+        assert!(!same_origin(&headers(&[
+            ("origin", "https://evil.example"),
+            ("host", "localhost:3000"),
+        ])));
+        assert!(same_origin(&headers(&[
+            ("origin", "http://localhost:3000"),
+            ("host", "localhost:3000"),
+        ])));
+        // Non-browser clients send neither header and carry no ambient cookie.
+        assert!(same_origin(&headers(&[("host", "localhost:3000")])));
+    }
+
     /// A directory that is guaranteed not to contain any static asset, so the
     /// route checks are exercised without depending on a frontend build.
     fn no_dist() -> &'static Path {
@@ -674,18 +938,18 @@ mod tests {
     #[test]
     fn canonicalizes_webhook_url_and_path_together() {
         assert_eq!(
-            webhook_config("https://example.com", no_dist()).unwrap(),
-            (
+            webhook_config("https://example.com", no_dist()),
+            Ok((
                 "https://example.com/webhook".to_string(),
                 "/webhook".to_string()
-            )
+            ))
         );
         assert_eq!(
-            webhook_config("https://example.com/events/", no_dist()).unwrap(),
-            (
+            webhook_config("https://example.com/events/", no_dist()),
+            Ok((
                 "https://example.com/events".to_string(),
                 "/events".to_string()
-            )
+            ))
         );
         assert!(webhook_config("https://example.com/api/events", no_dist()).is_err());
         assert!(webhook_config("https://example.com/locales", no_dist()).is_err());

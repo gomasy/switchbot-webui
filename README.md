@@ -43,9 +43,22 @@ The server listens on port 3000 by default. Set `PORT` to change it.
 
 To require authentication for the UI, set `AUTH_TOKEN` to a long random string.
 When set, the web UI prompts for this token on first access and stores a session
-cookie for one year. When unset, the UI is accessible without authentication
-(a warning is printed at startup). A logout button appears in the header while
+cookie valid for 30 days. When unset, the UI is accessible without authentication
+(this is reported at startup). A logout button appears in the header while
 authentication is enabled.
+
+Sessions are random values tracked in memory, not a hash of `AUTH_TOKEN`, so
+logging out revokes that session for every client holding the cookie, and
+restarting the server ends all sessions. Repeated failed logins are handled one
+at a time with a delay that doubles per failure (up to 30s), so guesses cannot be
+parallelized.
+
+Commands are refused when the browser reports the request as cross-site, so
+another site cannot drive your devices in the background — this applies whether
+or not `AUTH_TOKEN` is set. The check reads `Sec-Fetch-Site`, falling back to
+comparing `Origin` against `Host`. If you put the app behind a reverse proxy,
+forward the original `Host` header (nginx: `proxy_set_header Host $host;`);
+rewriting it can make that fallback reject legitimate commands with a 403.
 
 ### Realtime updates (optional)
 
