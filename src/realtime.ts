@@ -101,7 +101,9 @@ export function useRealtime(
         needsResync = true;
         const delay = Math.min(MAX_BACKOFF_MS, 1000 * 2 ** attempt);
         attempt += 1;
-        timer = window.setTimeout(connect, delay);
+        // Jitter: a server restart drops every client at once, and without it
+        // they would all come back in the same instant, again and again.
+        timer = window.setTimeout(connect, delay * (0.5 + Math.random() * 0.5));
       };
       ws.onerror = () => ws.close();
     };

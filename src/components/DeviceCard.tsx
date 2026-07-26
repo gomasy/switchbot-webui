@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { getDeviceStatus } from "../api";
 import { getControls, getDeviceIcon, getTypeLabel } from "../deviceRegistry";
 import { useSendCommand } from "../hooks";
+import { tFmt } from "../i18n";
 import { formatStatusSummary } from "../status";
 import type { Device, InfraredDevice, DeviceStatus, ToastFn } from "../types";
 
@@ -54,9 +55,11 @@ export function DeviceCard({
     if (externalStatus) setStatus((prev) => ({ ...prev, ...externalStatus }));
   }, [externalStatus]);
 
+  const isOn = status?.power === "on";
+
   const handleToggle = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const command = status?.power === "on" ? "turnOff" : "turnOn";
+    const command = isOn ? "turnOff" : "turnOn";
     const newPower = command === "turnOn" ? "on" : "off";
     if (await send(command)) {
       setStatus((prev) => (prev ? { ...prev, power: newPower } : prev));
@@ -71,16 +74,39 @@ export function DeviceCard({
   const lowBattery = typeof battery === "number" && battery <= 20;
 
   return (
-    <div className="device-card" onClick={onClick}>
+    <div
+      className="device-card"
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        // Only the card itself: a key press on the nested toggle must flip the
+        // switch, not also open the detail modal behind it.
+        if (e.target !== e.currentTarget) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+    >
       <div className="device-card-icon">{getDeviceIcon(typeLabel)}</div>
       <div className="device-card-name">{device.deviceName}</div>
       {lowBattery && <span className="battery-badge">🪫 {battery}%</span>}
       <div className="device-card-status">{statusText}</div>
       {canToggle && (
-        <label className="toggle device-card-toggle" onClick={handleToggle}>
-          <input type="checkbox" checked={status?.power === "on"} readOnly />
+        // A button, not a <label> wrapping a checkbox: clicking such a label
+        // fires the handler twice (once directly, once via the click it
+        // forwards to the input), which sent every command to the API twice.
+        <button
+          type="button"
+          className="toggle device-card-toggle"
+          role="switch"
+          aria-checked={isOn}
+          aria-label={tFmt("device.togglePower", { name: device.deviceName })}
+          onClick={handleToggle}
+        >
           <span className="toggle-slider" />
-        </label>
+        </button>
       )}
     </div>
   );

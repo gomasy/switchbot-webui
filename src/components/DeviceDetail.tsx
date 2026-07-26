@@ -23,7 +23,7 @@ export function DeviceDetail({ device, isInfrared, onClose, onToast }: Props) {
   const refetchTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const mounted = useRef(true);
 
-  useModalClose(onClose);
+  const dialogRef = useModalClose(onClose);
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -70,14 +70,28 @@ export function DeviceDetail({ device, isInfrared, onClose, onToast }: Props) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal-content"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-device-name"
+        tabIndex={-1}
+        ref={dialogRef}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-header">
-          <button className="modal-close" onClick={onClose}>
+          <button
+            className="modal-close"
+            onClick={onClose}
+            aria-label={t("device.close")}
+          >
             ✕
           </button>
           <div className="modal-device-icon">{getDeviceIcon(typeLabel)}</div>
           <div className="modal-device-info">
-            <div className="modal-device-name">{device.deviceName}</div>
+            <div className="modal-device-name" id="modal-device-name">
+              {device.deviceName}
+            </div>
             <div className="modal-device-type">{typeLabel}</div>
           </div>
         </div>

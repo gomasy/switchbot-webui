@@ -291,7 +291,7 @@ export function App() {
         />
       )}
 
-      <div className="toast-container">
+      <div className="toast-container" role="status" aria-live="polite">
         {toasts.map((toast) => (
           <div key={toast.id} className={`toast ${toast.type}`}>
             {toast.message}

@@ -72,7 +72,9 @@ export function getDevices() {
 }
 
 export async function getDeviceStatus(deviceId: string) {
-  const res = await request<DeviceStatus>(`/v1.1/devices/${deviceId}/status`);
+  const res = await request<DeviceStatus>(
+    `/v1.1/devices/${encodeURIComponent(deviceId)}/status`,
+  );
   if (res.body) normalizeStatusCase(res.body);
   return res;
 }
@@ -83,7 +85,7 @@ export function sendCommand(
   parameter: unknown = "default",
   commandType = "command",
 ) {
-  return post(`/v1.1/devices/${deviceId}/commands`, {
+  return post(`/v1.1/devices/${encodeURIComponent(deviceId)}/commands`, {
     command,
     parameter,
     commandType,
@@ -95,5 +97,5 @@ export function getScenes() {
 }
 
 export function executeScene(sceneId: string) {
-  return post(`/v1.1/scenes/${sceneId}/execute`);
+  return post(`/v1.1/scenes/${encodeURIComponent(sceneId)}/execute`);
 }

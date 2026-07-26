@@ -187,6 +187,14 @@ body {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
 }
 
+/* These are reachable by keyboard, so the focus ring has to stay visible. */
+.device-card:focus-visible,
+.toggle:focus-visible,
+.modal-content:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
 .device-card-icon {
   font-size: 28px;
   line-height: 1;
@@ -227,12 +235,10 @@ body {
   width: 44px;
   height: 24px;
   flex-shrink: 0;
-}
-
-.toggle input {
-  opacity: 0;
-  width: 0;
-  height: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
 }
 
 .toggle-slider {
@@ -257,11 +263,11 @@ body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
-.toggle input:checked + .toggle-slider {
+.toggle[aria-checked="true"] .toggle-slider {
   background: var(--primary);
 }
 
-.toggle input:checked + .toggle-slider::before {
+.toggle[aria-checked="true"] .toggle-slider::before {
   transform: translateX(20px);
 }
 
