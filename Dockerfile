@@ -15,7 +15,8 @@ FROM rust:1-alpine AS backend
 ARG GIT_HASH=unknown
 ARG BUILD_DATE=
 ENV GIT_HASH=$GIT_HASH BUILD_DATE=$BUILD_DATE
-RUN apk add --no-cache musl-dev pkgconfig openssl-dev openssl-libs-static ca-certificates
+# reqwest is built against rustls, so no OpenSSL toolchain is needed here.
+RUN apk add --no-cache musl-dev ca-certificates
 WORKDIR /app
 COPY Cargo.toml Cargo.lock build.rs ./
 RUN mkdir src && echo 'fn main() {}' > src/main.rs && cargo build --release --locked && rm src/main.rs
