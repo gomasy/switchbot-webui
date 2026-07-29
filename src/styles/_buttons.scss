@@ -1,0 +1,153 @@
+@use "tokens" as *;
+@use "mixins" as *;
+
+.action-buttons {
+  display: flex;
+  gap: $space-sm;
+  padding: $space-xs 0;
+}
+
+.action-btn {
+  flex: 1;
+  padding: 14px;
+  border: none;
+  border-radius: $radius-md;
+  font-size: $text-md;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background $duration-base,
+    color $duration-base;
+
+  @include disabled;
+}
+
+.action-btn-primary {
+  @include primary-fill;
+}
+
+.action-btn-secondary {
+  background: var(--border);
+  color: var(--text);
+
+  &:hover:not(:disabled) {
+    background: var(--text-secondary);
+    color: var(--card);
+  }
+}
+
+// Segmented control
+// ---------------------------------------------------------------------------
+
+.segment-control {
+  display: flex;
+  gap: $space-xs;
+}
+
+.segment-btn {
+  @include outlined-tile;
+  flex: 1;
+  padding: 10px $space-2xs;
+  color: var(--text-secondary);
+  font-size: $text-sm;
+
+  &.active {
+    border-color: var(--primary);
+    background: var(--primary-light);
+    color: var(--primary);
+  }
+
+  &:hover:not(.active):not(:disabled) {
+    border-color: var(--text-secondary);
+  }
+}
+
+// Channel keypad
+// ---------------------------------------------------------------------------
+
+.channel-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: $space-xs;
+}
+
+.channel-btn {
+  @include outlined-tile(transform $duration-base);
+  padding: 14px 0;
+  color: var(--text);
+  font-size: $text-lg;
+  font-weight: 700;
+
+  &:hover:not(:disabled) {
+    border-color: var(--primary);
+    background: var(--primary-light);
+    color: var(--primary);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+// DIY buttons
+// ---------------------------------------------------------------------------
+
+.edit-toggle-btn {
+  @include bare-button;
+  padding: $space-2xs $space-xs;
+  color: var(--primary);
+  font-size: $text-sm;
+  font-weight: 600;
+}
+
+.diy-button-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: $space-xs;
+  margin-bottom: $space-xs;
+}
+
+.diy-button-wrapper {
+  position: relative;
+
+  .action-btn {
+    width: 100%;
+  }
+}
+
+.diy-remove-btn {
+  @include primary-fill;
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  font-size: $text-2xs;
+  line-height: 1;
+  cursor: pointer;
+  transition: background $duration-base;
+}
+
+.diy-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: $space-xs;
+  margin-top: $space-xs;
+}
+
+.diy-add-row {
+  display: flex;
+  gap: $space-xs;
+}
+
+.diy-empty {
+  padding: $space-md 0;
+  color: var(--text-secondary);
+  font-size: $text-sm;
+  text-align: center;
+}

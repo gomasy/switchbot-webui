@@ -1,0 +1,110 @@
+@use "tokens" as *;
+
+/// The raised white surface every card and panel is built from.
+@mixin surface($padding: $space-md, $radius: $radius-lg) {
+  padding: $padding;
+  border-radius: $radius;
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+/// A section of the device detail sheet: a surface plus the rhythm between it
+/// and the next one.
+@mixin panel {
+  @include surface($space-lg);
+  margin-bottom: $space-md;
+}
+
+/// Strips the platform chrome off a <button> that is used as a bare control.
+@mixin bare-button {
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+/// Anything the user taps directly: no text selection, no tap flash.
+@mixin tappable {
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/// The solid primary fill shared by every call-to-action button. Geometry and
+/// transitions stay with the caller; this is only the colour treatment.
+@mixin primary-fill {
+  background: var(--primary);
+  color: #fff;
+
+  &:hover:not(:disabled) {
+    background: var(--primary-dark);
+  }
+}
+
+@mixin focus-ring($offset: 2px) {
+  outline: 2px solid var(--primary);
+  outline-offset: $offset;
+}
+
+/// One disabled treatment for every control, so none of them drift.
+@mixin disabled {
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+/// The outlined tile shared by the segment and channel button grids.
+///
+/// `$extra-transition` is appended to the shared transition list, so a caller
+/// can add its own without restating — and drifting from — the shared one.
+/// Sass drops the `null` default from the list.
+@mixin outlined-tile($extra-transition: null) {
+  border: 2px solid var(--border);
+  border-radius: $radius-md;
+  background: var(--card);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color $duration-base,
+    background $duration-base,
+    color $duration-base,
+    $extra-transition;
+
+  @include disabled;
+}
+
+/// The text field shared by the login and DIY-button forms.
+@mixin text-input {
+  border: 2px solid var(--border);
+  border-radius: $radius-md;
+  background: var(--bg);
+  color: var(--text);
+  transition: border-color $duration-base;
+
+  &::placeholder {
+    color: var(--text-secondary);
+  }
+
+  &:focus {
+    border-color: var(--primary);
+  }
+}
+
+/// Both vendor thumbs of an <input type="range"> want the same look.
+@mixin range-thumb {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 2px 6px translucent(var(--primary), 30%);
+  cursor: pointer;
+}
+
+/// Screens wide enough to fit an extra column.
+@mixin wide-up {
+  @media (min-width: $breakpoint-wide) {
+    @content;
+  }
+}

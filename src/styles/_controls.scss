@@ -1,0 +1,163 @@
+@use "tokens" as *;
+@use "mixins" as *;
+
+.control-section {
+  @include panel;
+}
+
+.control-section-title {
+  margin-bottom: $space-md;
+  color: var(--text-secondary);
+  font-size: $text-sm;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.control-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $space-md;
+}
+
+.control-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $space-xs 0;
+}
+
+.control-label {
+  font-size: $text-base;
+  font-weight: 500;
+}
+
+// Power button
+// ---------------------------------------------------------------------------
+
+.power-toggle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-sm;
+  padding: $space-md 0;
+}
+
+.power-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  border: 3px solid var(--border);
+  border-radius: 50%;
+  background: var(--card);
+  box-shadow: var(--shadow-md);
+  font-size: 32px;
+  cursor: pointer;
+  transition:
+    border-color $duration-slow,
+    background $duration-slow,
+    box-shadow $duration-slow;
+
+  &.on {
+    border-color: var(--primary);
+    background: var(--primary-light);
+    box-shadow: 0 4px 16px translucent(var(--primary), 25%);
+  }
+}
+
+.power-label {
+  color: var(--text-secondary);
+  font-size: $text-md;
+  font-weight: 600;
+}
+
+// Slider
+// ---------------------------------------------------------------------------
+
+.slider-control {
+  padding: $space-xs 0;
+}
+
+.slider-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: $space-xs;
+}
+
+.slider-label {
+  font-size: $text-md;
+  font-weight: 500;
+}
+
+.slider-value {
+  color: var(--primary);
+  font-size: $text-md;
+  font-weight: 600;
+}
+
+input[type="range"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+
+  &::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    @include range-thumb;
+  }
+
+  &::-moz-range-thumb {
+    @include range-thumb;
+  }
+}
+
+// Colour picker
+// ---------------------------------------------------------------------------
+
+input[type="color"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 48px;
+  height: 48px;
+  padding: 2px;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+
+  &::-webkit-color-swatch-wrapper {
+    padding: 0;
+  }
+
+  &::-webkit-color-swatch {
+    border: none;
+    border-radius: 50%;
+  }
+}
+
+// Custom command form
+// ---------------------------------------------------------------------------
+
+.custom-btn-form {
+  display: flex;
+  gap: $space-xs;
+
+  .action-btn {
+    flex: none;
+    padding: $space-sm $space-lg;
+  }
+}
+
+.custom-btn-input {
+  @include text-input;
+  flex: 1;
+  min-width: 0;
+  padding: $space-sm $space-md;
+  font-size: $text-md;
+}

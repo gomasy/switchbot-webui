@@ -1,0 +1,134 @@
+@use "tokens" as *;
+@use "mixins" as *;
+
+// Header
+// ---------------------------------------------------------------------------
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: $header-height;
+  padding: 0 $space-md;
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 2px 8px translucent(var(--primary), 30%);
+}
+
+.header-brand {
+  display: flex;
+  align-items: baseline;
+  gap: $space-xs;
+}
+
+.header-title {
+  font-size: $text-2xl;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.header-version {
+  font-size: $text-2xs;
+  font-weight: 400;
+  opacity: 0.75;
+}
+
+.header-actions {
+  display: flex;
+  gap: $space-xs;
+}
+
+.btn-icon {
+  @include bare-button;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: $text-2xl;
+  transition: background $duration-base;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  &:active {
+    background: rgba(255, 255, 255, 0.25);
+  }
+
+  &.spinning {
+    animation: spin 1s linear infinite;
+  }
+
+  // The default ring is --primary, which is also this button's backdrop.
+  &:focus-visible {
+    outline-color: #fff;
+  }
+}
+
+// Bottom navigation
+// ---------------------------------------------------------------------------
+
+.bottom-nav {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 100;
+  display: flex;
+  height: $nav-height;
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--card);
+  border-top: 1px solid var(--border);
+}
+
+.nav-item {
+  @include bare-button;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: $space-3xs;
+  color: var(--text-secondary);
+  font-size: $text-2xs;
+  font-weight: 500;
+  transition: color $duration-base;
+
+  .nav-icon {
+    font-size: 22px;
+    line-height: 1;
+  }
+
+  &.active {
+    color: var(--primary);
+  }
+}
+
+// Content
+// ---------------------------------------------------------------------------
+
+.main {
+  max-width: $content-width;
+  // The trailing padding clears the fixed bottom navigation.
+  padding: $space-md $space-md ($nav-height + $space-xl);
+  margin: 0 auto;
+}
+
+.section-title {
+  padding: 0 $space-2xs;
+  margin-bottom: $space-sm;
+  color: var(--text);
+  font-size: $text-base;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.room-section {
+  margin-bottom: $space-xl;
+}

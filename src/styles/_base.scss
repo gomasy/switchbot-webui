@@ -1,0 +1,123 @@
+@use "tokens" as *;
+@use "mixins" as *;
+
+// Theme
+// ---------------------------------------------------------------------------
+
+:root {
+  color-scheme: light;
+
+  --primary: #e74c3c;
+  --primary-dark: #c0392b;
+  --primary-light: #fdecea;
+  --bg: #f5f6f8;
+  --card: #ffffff;
+  --text: #1a1a2e;
+  --text-secondary: #7b7b8e;
+  --border: #e8e8ed;
+  --success: #2ecc71;
+  --warning: #f39c12;
+
+  // Elevation, from pressed-into-the-page to floating above it.
+  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.1);
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --primary-light: #3d1a17;
+  --bg: #121218;
+  --card: #1e1e2a;
+  --text: #e8e8f0;
+  --text-secondary: #9090a0;
+  --border: #2e2e3e;
+
+  // Shadows have to bite harder to read against a dark surface.
+  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.35);
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 20px rgba(0, 0, 0, 0.5);
+}
+
+// Reset
+// ---------------------------------------------------------------------------
+
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: $font-stack;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+// Form controls opt out of font inheritance by default; opt them back in so
+// buttons and fields match the rest of the UI instead of the platform default.
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+// Every control here is keyboard reachable, and several of them signal focus
+// only with a colour change, so the ring has to stay visible throughout.
+:focus-visible {
+  @include focus-ring;
+}
+
+// Animations
+// ---------------------------------------------------------------------------
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  // The spinners are the only signal that a request is in flight, so they keep
+  // turning — just slowly enough not to be distracting.
+  .spinner,
+  .btn-icon.spinning {
+    animation-duration: 2s !important;
+    animation-iteration-count: infinite !important;
+  }
+}

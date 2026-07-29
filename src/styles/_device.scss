@@ -1,0 +1,104 @@
+@use "tokens" as *;
+@use "mixins" as *;
+
+.device-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: $space-sm;
+
+  @include wide-up {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.device-card {
+  @include surface;
+  @include tappable;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: $space-xs;
+  min-height: 100px;
+  transition:
+    transform $duration-fast,
+    box-shadow $duration-fast;
+
+  &:active {
+    transform: scale(0.97);
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+.device-card-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.device-card-name {
+  font-size: $text-sm;
+  font-weight: 600;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.device-card-status {
+  margin-top: auto;
+  color: var(--text-secondary);
+  font-size: $text-2xs;
+}
+
+.battery-badge {
+  align-self: flex-start;
+  padding: $space-3xs $space-xs;
+  border-radius: $radius-sm;
+  background: translucent(var(--warning), 15%);
+  color: var(--warning);
+  font-size: $text-2xs;
+  font-weight: 600;
+}
+
+.device-card-toggle {
+  position: absolute;
+  top: $space-sm;
+  right: $space-sm;
+}
+
+// Toggle switch
+// ---------------------------------------------------------------------------
+
+.toggle {
+  @include bare-button;
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 24px;
+}
+
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  border-radius: 24px;
+  background: var(--border);
+  transition: background $duration-slow;
+
+  &::before {
+    content: "";
+    position: absolute;
+    bottom: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--card);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    transition: transform $duration-slow;
+  }
+
+  .toggle[aria-checked="true"] & {
+    background: var(--primary);
+
+    &::before {
+      transform: translateX(20px);
+    }
+  }
+}

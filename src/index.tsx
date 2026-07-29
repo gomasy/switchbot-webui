@@ -1,7 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { init } from "./i18n";
-import "./styles.css";
+import "./styles/index.scss";
 
 // Render even if the locale files could not be fetched: t() falls back to the
 // key, which is far better than the blank page an unhandled rejection leaves.

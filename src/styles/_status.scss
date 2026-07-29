@@ -1,0 +1,30 @@
+@use "tokens" as *;
+@use "mixins" as *;
+
+// The readout at the top of the device detail sheet.
+
+.status-section {
+  @include panel;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: $space-md;
+}
+
+.status-item {
+  text-align: center;
+}
+
+.status-value {
+  color: var(--text);
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.status-label {
+  margin-top: $space-2xs;
+  color: var(--text-secondary);
+  font-size: $text-xs;
+}

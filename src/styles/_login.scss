@@ -1,0 +1,45 @@
+@use "tokens" as *;
+@use "mixins" as *;
+
+.login-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: $space-xl;
+}
+
+.login-card {
+  @include surface($space-2xl $space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: $space-sm;
+  width: 100%;
+  max-width: 320px;
+  text-align: center;
+}
+
+.login-icon {
+  font-size: 40px;
+}
+
+.login-title {
+  font-size: $text-xl;
+  font-weight: 700;
+}
+
+.login-description {
+  color: var(--text-secondary);
+  font-size: $text-sm;
+}
+
+.login-input {
+  @include text-input;
+  padding: $space-sm;
+  font-size: $text-base;
+}
+
+.login-error {
+  color: var(--primary);
+  font-size: $text-sm;
+}

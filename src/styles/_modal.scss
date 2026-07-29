@@ -1,0 +1,92 @@
+@use "tokens" as *;
+
+// Set on <body> while a sheet is open so the page behind it cannot scroll.
+body.modal-open {
+  overflow: hidden;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+  animation: fade-in $duration-base ease;
+}
+
+.modal-content {
+  width: 100%;
+  max-width: $content-width;
+  max-height: 85vh;
+  padding-bottom: env(safe-area-inset-bottom);
+  border-radius: $radius-xl $radius-xl 0 0;
+  background: var(--bg);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  animation: slide-up $duration-slow ease;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    border-radius: $radius-xs;
+    background: var(--border);
+  }
+}
+
+.modal-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: $space-sm;
+  padding: $space-lg $space-lg $space-sm;
+  background: var(--bg);
+}
+
+.modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: var(--card);
+  box-shadow: var(--shadow);
+  color: var(--text-secondary);
+  font-size: $text-xl;
+  cursor: pointer;
+}
+
+.modal-device-icon {
+  font-size: 32px;
+}
+
+.modal-device-info {
+  flex: 1;
+}
+
+.modal-device-name {
+  font-size: $text-xl;
+  font-weight: 700;
+}
+
+.modal-device-type {
+  color: var(--text-secondary);
+  font-size: $text-xs;
+}
+
+.modal-body {
+  padding: $space-xs $space-lg $space-2xl;
+}

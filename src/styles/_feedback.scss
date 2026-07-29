@@ -1,0 +1,94 @@
+@use "tokens" as *;
+@use "mixins" as *;
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: $space-md;
+  padding: 60px $space-lg;
+  color: var(--text-secondary);
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.error-message {
+  padding: 40px $space-lg;
+  color: var(--primary);
+  text-align: center;
+
+  p {
+    margin-bottom: $space-md;
+  }
+
+  button {
+    @include primary-fill;
+    padding: 10px $space-xl;
+    border: none;
+    border-radius: $radius-sm;
+    font-size: $text-md;
+    cursor: pointer;
+    transition: background $duration-base;
+  }
+}
+
+// Toasts
+// ---------------------------------------------------------------------------
+
+.toast-container {
+  position: fixed;
+  top: $header-height + $space-md;
+  left: 50%;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  gap: $space-xs;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.toast {
+  padding: $space-sm $space-xl;
+  border-radius: $radius-md;
+  background: var(--text);
+  box-shadow: var(--shadow-lg);
+  color: #fff;
+  font-size: $text-md;
+  font-weight: 500;
+  white-space: nowrap;
+  animation: toast-in $duration-slow ease;
+
+  &.error {
+    background: var(--primary);
+  }
+
+  &.success {
+    background: var(--success);
+  }
+}
+
+// Empty state
+// ---------------------------------------------------------------------------
+
+.empty-state {
+  padding: 60px $space-lg;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.empty-state-icon {
+  margin-bottom: $space-md;
+  font-size: 48px;
+}
+
+.empty-state-text {
+  font-size: $text-base;
+}

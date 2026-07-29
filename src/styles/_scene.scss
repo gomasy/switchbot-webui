@@ -1,0 +1,50 @@
+@use "tokens" as *;
+@use "mixins" as *;
+
+.scene-list {
+  display: flex;
+  flex-direction: column;
+  gap: $space-sm;
+}
+
+.scene-card {
+  @include surface($space-md $space-lg);
+  @include tappable;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition:
+    transform $duration-fast,
+    box-shadow $duration-fast;
+
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+.scene-card-left {
+  display: flex;
+  align-items: center;
+  gap: $space-sm;
+}
+
+.scene-card-icon {
+  font-size: 24px;
+}
+
+.scene-card-name {
+  font-size: $text-base;
+  font-weight: 600;
+}
+
+.scene-card-run {
+  @include primary-fill;
+  @include disabled;
+  padding: $space-xs $space-lg;
+  border: none;
+  border-radius: $radius-xl;
+  font-size: $text-sm;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background $duration-base;
+}
