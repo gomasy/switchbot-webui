@@ -29,6 +29,7 @@ export function normalizeWebhook(ctx: Record<string, unknown>): StatusUpdate | n
   copyNum("brightness");
   copyNum("colorTemperature");
   copyNum("slidePosition");
+  copyNum("nebulizationEfficiency");
 
   copyStr("color");
   copyStr("openState");

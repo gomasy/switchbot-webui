@@ -270,6 +270,8 @@ export function App() {
         <DeviceDetail
           device={selectedDevice.device}
           isInfrared={selectedDevice.isInfrared}
+          externalStatus={deviceStatuses[selectedDevice.device.deviceId]}
+          realtime={realtime}
           onClose={() => {
             const deviceId = selectedDevice.device.deviceId;
             setDeviceStatuses((prev) => {

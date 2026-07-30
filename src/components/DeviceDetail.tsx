@@ -12,11 +12,20 @@ import { PhysicalControls } from "./PhysicalControls";
 interface Props {
   device: Device | InfraredDevice;
   isInfrared: boolean;
+  externalStatus?: DeviceStatus | null;
+  realtime: boolean;
   onClose: () => void;
   onToast: ToastFn;
 }
 
-export function DeviceDetail({ device, isInfrared, onClose, onToast }: Props) {
+export function DeviceDetail({
+  device,
+  isInfrared,
+  externalStatus,
+  realtime,
+  onClose,
+  onToast,
+}: Props) {
   const [status, setStatus] = useState<DeviceStatus | null>(null);
   const [loading, setLoading] = useState(!isInfrared);
   const { sending, send: sendRaw } = useSendCommand(device.deviceId, onToast);
@@ -52,6 +61,17 @@ export function DeviceDetail({ device, isInfrared, onClose, onToast }: Props) {
     fetchStatus();
   }, [fetchStatus]);
 
+  // Fold each realtime webhook into the fetched status (merge, not replace, so
+  // earlier partial events survive) and cancel any pending fallback refetch:
+  // the webhook already carries the change — including a color <-> color
+  // temperature switch the eventually-consistent refetch would lag — so the
+  // extra status request (and its daily-quota cost) is unnecessary.
+  useEffect(() => {
+    if (!externalStatus) return;
+    clearTimeout(refetchTimer.current);
+    setStatus((prev) => ({ ...prev, ...externalStatus }));
+  }, [externalStatus]);
+
   const send: SendFn = async (command, parameter, commandType) => {
     const succeeded = await sendRaw(command, parameter, commandType);
     if (!succeeded || !mounted.current) return succeeded;
@@ -59,7 +79,11 @@ export function DeviceDetail({ device, isInfrared, onClose, onToast }: Props) {
     onToast(`${device.deviceName}: ${command}`, "success");
     if (!isInfrared) {
       clearTimeout(refetchTimer.current);
-      refetchTimer.current = setTimeout(fetchStatus, 1000);
+      // With realtime on, let the webhook drive the update and keep the refetch
+      // only as a fallback for when no notification arrives; the longer delay
+      // gives the webhook time to land and cancel it. Without realtime, the
+      // refetch is the only update path, so fire it promptly.
+      refetchTimer.current = setTimeout(fetchStatus, realtime ? 5000 : 1000);
     }
     return true;
   };
