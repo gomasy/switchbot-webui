@@ -444,12 +444,14 @@ async fn api_proxy(State(state): State<Arc<AppState>>, req: Request<Body>) -> Re
         return resp;
     }
 
-    let path = parts
+    // `nest_service("/api/")` has already stripped the prefix, so this is the
+    // upstream path as-is. Stripping it again here would rewrite a genuine
+    // `/api/api/...` request into something the caller never asked for.
+    let upstream_path = parts
         .uri
         .path_and_query()
         .map(|pq| pq.as_str())
         .unwrap_or("/");
-    let upstream_path = path.strip_prefix("/api").unwrap_or(path);
     let url = format!("{SWITCHBOT_API}{upstream_path}");
 
     let (cache_key, invalidate_key) = if state.cache_ttl.is_zero() {
