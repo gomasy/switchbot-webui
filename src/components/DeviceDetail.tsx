@@ -149,6 +149,7 @@ export function DeviceDetail({
             ) : (
               <PhysicalControls
                 controls={controls}
+                deviceType={typeLabel}
                 status={status}
                 send={send}
                 sending={sending}

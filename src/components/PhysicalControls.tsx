@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { ControlKind } from "../deviceRegistry";
+import { getCategory, type ControlKind } from "../deviceRegistry";
 import { t } from "../i18n";
 import { deviceColorToHex, hexToDeviceColor } from "../status";
 import type { DeviceStatus } from "../types";
@@ -14,17 +14,25 @@ import {
 
 interface Props {
   controls: ControlKind[];
+  deviceType: string;
   status: DeviceStatus | null;
   send: SendFn;
   sending: boolean;
 }
 
-export function PhysicalControls({ controls, status, send, sending }: Props) {
+export function PhysicalControls({
+  controls,
+  deviceType,
+  status,
+  send,
+  sending,
+}: Props) {
   const [brightness, setBrightness] = useState(100);
   const [colorTemp, setColorTemp] = useState(3500);
   const [position, setPosition] = useState(0);
   const [humidity, setHumidity] = useState(50);
   const [color, setColor] = useState("#ffffff");
+  const category = getCategory(deviceType);
 
   useEffect(() => {
     if (!status) return;
@@ -106,7 +114,9 @@ export function PhysicalControls({ controls, status, send, sending }: Props) {
       )}
 
       {controls.includes("position") && (
-        <ControlSection title={t("control.curtain")}>
+        <ControlSection
+          title={category === "roller" ? t("control.rollerShade") : t("control.curtain")}
+        >
           <Slider
             label={t("control.position")}
             valueLabel={`${position}%`}
@@ -115,18 +125,44 @@ export function PhysicalControls({ controls, status, send, sending }: Props) {
             value={position}
             disabled={sending}
             onChange={setPosition}
-            onCommit={() => send("setPosition", `0,ff,${position}`)}
+            onCommit={() =>
+              send("setPosition", category === "roller" ? `${position}` : `0,ff,${position}`)
+            }
           />
-          <ActionRow>
-            <ActionButton primary onClick={() => send("turnOn")} disabled={sending}>
-              {t("control.open")}
-            </ActionButton>
-            <ActionButton onClick={() => send("turnOff")} disabled={sending}>
-              {t("control.close")}
-            </ActionButton>
-          </ActionRow>
+          {category !== "roller" && (
+            <ActionRow>
+              <ActionButton primary onClick={() => send("turnOn")} disabled={sending}>
+                {t("control.open")}
+              </ActionButton>
+              <ActionButton onClick={() => send("turnOff")} disabled={sending}>
+                {t("control.close")}
+              </ActionButton>
+            </ActionRow>
+          )}
         </ControlSection>
       )}
+
+      {controls.includes("relayChannels") &&
+        ([1, 2] as const).map((channel) => (
+          <ControlSection key={channel} title={`${t("control.channel")} ${channel}`}>
+            <ActionRow>
+              <ActionButton
+                primary={status?.[`switch${channel}Status`] !== 1}
+                onClick={() => send("turnOn", `${channel}`)}
+                disabled={sending}
+              >
+                ON
+              </ActionButton>
+              <ActionButton
+                primary={status?.[`switch${channel}Status`] === 1}
+                onClick={() => send("turnOff", `${channel}`)}
+                disabled={sending}
+              >
+                OFF
+              </ActionButton>
+            </ActionRow>
+          </ControlSection>
+        ))}
 
       {controls.includes("lock") && (
         <ControlSection title={t("control.lockControl")}>

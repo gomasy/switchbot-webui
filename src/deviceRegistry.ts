@@ -7,6 +7,9 @@ export type DeviceCategory =
   | "ceilingLight"
   | "light"
   | "curtain"
+  | "roller"
+  | "relay"
+  | "relay2"
   | "lock"
   | "meter"
   | "motion"
@@ -33,7 +36,8 @@ export type ControlKind =
   | "position"
   | "lock"
   | "vacuum"
-  | "humidity";
+  | "humidity"
+  | "relayChannels";
 
 interface CategoryInfo {
   icon: string;
@@ -50,6 +54,9 @@ const CATEGORIES: Record<DeviceCategory, CategoryInfo> = {
   ceilingLight: { icon: "💡", controls: ["power", "brightness", "colorTemp"] },
   light: { icon: "💡", controls: ["power", "brightness"] },
   curtain: { icon: "🪟", controls: ["position"] },
+  roller: { icon: "🪟", controls: ["position"] },
+  relay: { icon: "🔌", controls: ["power"] },
+  relay2: { icon: "🔌", controls: ["relayChannels"] },
   lock: { icon: "🔒", controls: ["lock"] },
   meter: { icon: "🌡️", controls: [] },
   motion: { icon: "👁️", controls: [] },
@@ -91,12 +98,14 @@ export function getCategory(deviceType: string | undefined): DeviceCategory {
   if (dt.includes("hub")) return "hub";
   if (dt.includes("bot")) return "bot";
   if (dt.includes("plug")) return "plug";
+  if (dt.includes("relay switch 2pm")) return "relay2";
+  if (dt.includes("relay switch")) return "relay";
   if (dt.includes("color bulb") || dt.includes("strip")) return "colorLight";
   if (dt.includes("ceiling light")) return "ceilingLight";
   if (dt.includes("bulb") || dt.includes("light") || dt.includes("lamp"))
     return "light";
-  if (dt.includes("curtain") || dt.includes("blind") || dt.includes("roller"))
-    return "curtain";
+  if (dt.includes("roller shade")) return "roller";
+  if (dt.includes("curtain") || dt.includes("blind")) return "curtain";
   if (dt.includes("lock")) return "lock";
   if (dt.includes("humidifier")) return "humidifier";
   if (dt.includes("purifier")) return "purifier";
