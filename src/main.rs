@@ -205,12 +205,7 @@ fn start_session(sessions: &Sessions) -> Option<HeaderValue> {
 /// `Sec-Fetch-Site` on every fetch and a page cannot forge it, so it is a
 /// reliable CSRF guard. Clients that send neither header (curl, scripts) are
 /// allowed through: they carry no ambient cookie for an attacker to borrow.
-fn same_origin(headers: &HeaderMap) -> bool {
-    if let Some(site) = headers.get("sec-fetch-site").and_then(|v| v.to_str().ok()) {
-        return matches!(site, "same-origin" | "none");
-    }
-    // Browsers predating Sec-Fetch-Site still send Origin on cross-site
-    // requests; compare it with the host the request was addressed to.
+fn origin_matches_host(headers: &HeaderMap) -> bool {
     let Some(origin) = headers.get(ORIGIN).and_then(|v| v.to_str().ok()) else {
         return true;
     };
@@ -219,6 +214,21 @@ fn same_origin(headers: &HeaderMap) -> bool {
         .and_then(|v| v.to_str().ok())
         .and_then(|host| origin.split_once("://").map(|(_, rest)| rest == host))
         .unwrap_or(false)
+}
+
+fn same_origin(headers: &HeaderMap) -> bool {
+    if let Some(site) = headers.get("sec-fetch-site").and_then(|v| v.to_str().ok()) {
+        return matches!(site, "same-origin" | "none");
+    }
+    // Browsers predating Sec-Fetch-Site still send Origin on cross-site
+    // requests; compare it with the host the request was addressed to.
+    origin_matches_host(headers)
+}
+
+/// WebSockets are not protected by CORS, so validate both browser fetch
+/// metadata and the Origin authority before accepting an upgrade.
+fn websocket_origin_allowed(headers: &HeaderMap) -> bool {
+    same_origin(headers) && origin_matches_host(headers)
 }
 
 /// Refuse state-changing requests a browser reports as cross-site, so no
@@ -509,6 +519,9 @@ async fn ws_handler(
     headers: HeaderMap,
     ws: WebSocketUpgrade,
 ) -> Response {
+    if !websocket_origin_allowed(&headers) {
+        return error_response(StatusCode::FORBIDDEN);
+    }
     let Some(session) = authorize(&state, &headers) else {
         return error_response(StatusCode::UNAUTHORIZED);
     };
@@ -927,6 +940,30 @@ mod tests {
         ])));
         // Non-browser clients send neither header and carry no ambient cookie.
         assert!(same_origin(&headers(&[("host", "localhost:3000")])));
+    }
+
+    #[test]
+    fn accepts_websockets_only_from_the_requested_origin() {
+        assert!(websocket_origin_allowed(&headers(&[
+            ("sec-fetch-site", "same-origin"),
+            ("origin", "https://app.example"),
+            ("host", "app.example"),
+        ])));
+        assert!(!websocket_origin_allowed(&headers(&[
+            ("sec-fetch-site", "cross-site"),
+            ("origin", "https://evil.example"),
+            ("host", "app.example"),
+        ])));
+        // Do not trust internally inconsistent fetch metadata either.
+        assert!(!websocket_origin_allowed(&headers(&[
+            ("sec-fetch-site", "same-origin"),
+            ("origin", "https://evil.example"),
+            ("host", "app.example"),
+        ])));
+        assert!(websocket_origin_allowed(&headers(&[(
+            "host",
+            "app.example",
+        )])));
     }
 
     /// A directory that is guaranteed not to contain any static asset, so the
