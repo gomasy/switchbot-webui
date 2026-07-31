@@ -334,32 +334,35 @@ fn valid_device_key(key: &str) -> bool {
             .all(|b| b.is_ascii_alphanumeric() || b == b':' || b == b'-')
 }
 
-/// If this GET targets `/v1.1/devices/{id}/status`, return its deviceId so the
-/// response can be served from / stored in the short-lived status cache. `path`
-/// is the upstream path (with the `/api` prefix already stripped); any query
-/// string is ignored.
-fn status_cache_key(method: &Method, path: &str) -> Option<String> {
-    if method != Method::GET {
+/// The deviceId in `/v1.1/devices/{id}{suffix}`, when `path` names exactly that
+/// route with the given method. `path` is the upstream path; any query string
+/// is ignored.
+fn device_route_key(
+    method: &Method,
+    path: &str,
+    expected: Method,
+    suffix: &str,
+) -> Option<String> {
+    if method != expected {
         return None;
     }
     let path = path.split_once('?').map_or(path, |(head, _)| head);
     path.strip_prefix("/v1.1/devices/")
-        .and_then(|s| s.strip_suffix("/status"))
+        .and_then(|s| s.strip_suffix(suffix))
         .filter(|id| valid_device_key(id))
         .map(str::to_owned)
+}
+
+/// If this GET targets a device's status, return its deviceId so the response
+/// can be served from / stored in the short-lived status cache.
+fn status_cache_key(method: &Method, path: &str) -> Option<String> {
+    device_route_key(method, path, Method::GET, "/status")
 }
 
 /// If this POST sends a device command, return the status-cache key that must
 /// be invalidated after SwitchBot accepts it.
 fn command_cache_key(method: &Method, path: &str) -> Option<String> {
-    if method != Method::POST {
-        return None;
-    }
-    let path = path.split_once('?').map_or(path, |(head, _)| head);
-    path.strip_prefix("/v1.1/devices/")
-        .and_then(|s| s.strip_suffix("/commands"))
-        .filter(|id| valid_device_key(id))
-        .map(str::to_owned)
+    device_route_key(method, path, Method::POST, "/commands")
 }
 
 /// True when a SwitchBot response body reports success (statusCode 100),
@@ -542,9 +545,9 @@ async fn handle_socket(mut socket: WebSocket, state: Arc<AppState>, session: Ses
                         break;
                     }
                 }
-                // Reconnecting tells the browser to perform a full status refresh.
-                Err(broadcast::error::RecvError::Lagged(_)) => break,
-                Err(broadcast::error::RecvError::Closed) => break,
+                // Either way the stream ends; reconnecting tells the browser to
+                // perform a full status refresh.
+                Err(_) => break,
             },
             client = socket.recv() => match client {
                 Some(Ok(Message::Close(_))) | None => break,
@@ -560,7 +563,7 @@ async fn handle_socket(mut socket: WebSocket, state: Arc<AppState>, session: Ses
                 if revoked {
                     break;
                 }
-                if socket.send(Message::Ping(Vec::new().into())).await.is_err() {
+                if socket.send(Message::Ping(Bytes::new())).await.is_err() {
                     break;
                 }
             },
