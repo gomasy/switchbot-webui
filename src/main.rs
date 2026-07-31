@@ -337,12 +337,7 @@ fn valid_device_key(key: &str) -> bool {
 /// The deviceId in `/v1.1/devices/{id}{suffix}`, when `path` names exactly that
 /// route with the given method. `path` is the upstream path; any query string
 /// is ignored.
-fn device_route_key(
-    method: &Method,
-    path: &str,
-    expected: Method,
-    suffix: &str,
-) -> Option<String> {
+fn device_route_key(method: &Method, path: &str, expected: Method, suffix: &str) -> Option<String> {
     if method != expected {
         return None;
     }
