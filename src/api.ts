@@ -1,5 +1,5 @@
 import { t } from "./i18n";
-import { normalizeStatusCase } from "./status";
+import { normalizeDeviceStatus } from "./status";
 import type { ApiResponse, DeviceListBody, DeviceStatus, Scene } from "./types";
 
 export class UnauthorizedError extends Error {
@@ -75,7 +75,7 @@ export async function getDeviceStatus(deviceId: string) {
   const res = await request<DeviceStatus>(
     `/v1.1/devices/${encodeURIComponent(deviceId)}/status`,
   );
-  if (res.body) normalizeStatusCase(res.body);
+  if (res.body) normalizeDeviceStatus(res.body);
   return res;
 }
 

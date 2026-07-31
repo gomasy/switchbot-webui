@@ -88,10 +88,12 @@
   "status.none": "なし",
   "status.open": "開",
   "status.openClose": "開閉",
-  "status.powerToday": "本日の電力",
+  "status.power": "消費電力",
   "status.temperature": "温度",
   "status.unlocked": "解錠",
   "status.unknown": "不明",
   "status.voltage": "電圧",
+  "status.usageToday": "本日の使用時間",
+  "status.waterLeak": "水漏れ",
   "status.workingStatus": "動作状態"
 }

@@ -5,6 +5,29 @@ import type { DeviceStatus } from "./types";
 /** A subset of DeviceStatus derived from a webhook, always carrying deviceId. */
 export type StatusUpdate = Partial<DeviceStatus> & { deviceId: string };
 
+/** Fields carried straight across from the webhook when present, by type. */
+const NUMBER_FIELDS = [
+  "temperature",
+  "humidity",
+  "battery",
+  "brightness",
+  "colorTemperature",
+  "slidePosition",
+  "nebulizationEfficiency",
+  "switchStatus",
+  "switch1Status",
+  "switch2Status",
+];
+const STRING_FIELDS = [
+  "deviceType",
+  "color",
+  "openState",
+  "workingStatus",
+  "onlineStatus",
+  "lockState",
+  "doorState",
+];
+
 /**
  * Map a SwitchBot webhook `context` object onto the DeviceStatus fields the UI
  * renders. Webhook payloads vary by device type, so every field is optional and
@@ -15,35 +38,29 @@ export function normalizeWebhook(ctx: Record<string, unknown>): StatusUpdate | n
   if (!deviceId) return null;
 
   const out: StatusUpdate = { deviceId };
+  const sink = out as Record<string, unknown>;
 
-  const copyNum = (src: string, dst: keyof StatusUpdate = src as keyof StatusUpdate) => {
-    if (typeof ctx[src] === "number") (out as Record<string, unknown>)[dst] = ctx[src];
-  };
-  const copyStr = (src: string, dst: keyof StatusUpdate = src as keyof StatusUpdate) => {
-    if (typeof ctx[src] === "string") (out as Record<string, unknown>)[dst] = ctx[src];
-  };
+  for (const field of NUMBER_FIELDS) {
+    if (typeof ctx[field] === "number") sink[field] = ctx[field];
+  }
+  for (const field of STRING_FIELDS) {
+    if (typeof ctx[field] === "string") sink[field] = ctx[field];
+  }
 
-  copyNum("temperature");
-  copyNum("humidity");
-  copyNum("battery");
-  copyNum("brightness");
-  copyNum("colorTemperature");
-  copyNum("slidePosition");
-  copyNum("nebulizationEfficiency");
+  // Webhooks name it powerState; a few payloads use power. Prefer powerState
+  // when it is present and usable.
+  const power =
+    typeof ctx.powerState === "string" ? ctx.powerState : ctx.power;
+  if (typeof power === "string") out.power = power;
 
-  copyStr("color");
-  copyStr("openState");
-  copyStr("workingStatus");
-  copyStr("onlineStatus");
-  copyStr("lockState");
-  copyStr("doorState");
-  // Webhooks name it powerState; a few payloads use power. Copy powerState
-  // last so it wins when both are present.
-  copyStr("power");
-  copyStr("powerState", "power");
-
-  const detectionState = typeof ctx.detectionState === "string" ? ctx.detectionState : null;
-  if (detectionState) out.moveDetected = detectionState === "DETECTED";
+  if (typeof ctx.detectionState === "number") {
+    out.waterDetected = ctx.detectionState === 1;
+  } else if (typeof ctx.detectionState === "string") {
+    out.moveDetected = ctx.detectionState === "DETECTED";
+  }
+  if (!out.power && typeof out.switchStatus === "number") {
+    out.power = out.switchStatus === 1 ? "on" : "off";
+  }
 
   return normalizeStatusCase(out);
 }

@@ -88,10 +88,12 @@
   "status.none": "None",
   "status.open": "Open",
   "status.openClose": "Open/Close",
-  "status.powerToday": "Power today",
+  "status.power": "Power",
   "status.temperature": "Temperature",
   "status.unlocked": "Unlocked",
   "status.unknown": "Unknown",
   "status.voltage": "Voltage",
+  "status.usageToday": "Usage today",
+  "status.waterLeak": "Water leak",
   "status.workingStatus": "Status"
 }

@@ -17,6 +17,9 @@ export interface DeviceStatus {
   deviceId: string;
   deviceType: string;
   hubDeviceId: string;
+  /** On/off state. Metering devices report watts here; `normalizeDeviceStatus`
+   *  moves that to `weight`, so by the time a status reaches the UI this is
+   *  only ever a state string. */
   power?: string;
   temperature?: number;
   humidity?: number;
@@ -27,6 +30,11 @@ export interface DeviceStatus {
   weight?: number;
   electricityOfDay?: number;
   electricCurrent?: number;
+  status?: number;
+  waterDetected?: boolean;
+  switchStatus?: number;
+  switch1Status?: number;
+  switch2Status?: number;
   battery?: number;
   version?: string;
   lockState?: string;
