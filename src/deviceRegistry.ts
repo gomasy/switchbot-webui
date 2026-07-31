@@ -76,18 +76,26 @@ const CATEGORIES: Record<DeviceCategory, CategoryInfo> = {
   unknown: { icon: "📱", controls: ["power"] },
 };
 
+/** Robot vacuum models whose deviceType does not contain "vacuum". */
+const VACUUM_MODELS = ["k10", "k11", "k20", "s10", "s20"];
+
+/**
+ * Vacuum models that speak the newer startClean/pause command set instead of
+ * start/stop. Kept next to VACUUM_MODELS so the two cannot drift: a model
+ * missing from that list is never categorized as a vacuum in the first place.
+ */
+const ADVANCED_VACUUM_MODELS = ["s10", "s20", "k20"];
+
+function matchesModel(deviceType: string, models: string[]): boolean {
+  const dt = deviceType.toLowerCase();
+  return models.some((model) => dt.includes(model));
+}
+
 export function getCategory(deviceType: string | undefined): DeviceCategory {
   if (!deviceType) return "unknown";
   const dt = deviceType.toLowerCase();
   // Check vacuum before bot ("Robot Vacuum Cleaner" partially matches "bot")
-  if (
-    dt.includes("vacuum") ||
-    dt.includes("k10") ||
-    dt.includes("k20") ||
-    dt.includes("s10") ||
-    dt.includes("k11")
-  )
-    return "vacuum";
+  if (dt.includes("vacuum") || matchesModel(dt, VACUUM_MODELS)) return "vacuum";
   if (dt.includes("meter") || dt.includes("thermo")) return "meter";
   if (dt.includes("motion")) return "motion";
   if (dt.includes("contact")) return "contact";
@@ -126,6 +134,29 @@ export function getControls(deviceType: string): ControlKind[] {
 
 export function isHub(deviceType: string): boolean {
   return getCategory(deviceType) === "hub";
+}
+
+export interface VacuumCommands {
+  start: string;
+  /** Undefined for the older command set, which takes no parameter. */
+  startParameter?: unknown;
+  stop: string;
+}
+
+/** The start/stop commands this vacuum model understands. */
+export function getVacuumCommands(deviceType: string): VacuumCommands {
+  if (!matchesModel(deviceType, ADVANCED_VACUUM_MODELS)) {
+    return { start: "start", stop: "stop" };
+  }
+  // The K20 has no mop, so its parameter carries no water level.
+  const param = matchesModel(deviceType, ["k20"])
+    ? { fanLevel: 1, times: 1 }
+    : { fanLevel: 1, waterLevel: 1, times: 1 };
+  return {
+    start: "startClean",
+    startParameter: { action: "sweep", param },
+    stop: "pause",
+  };
 }
 
 /** Return deviceType for physical devices, remoteType for infrared devices. */

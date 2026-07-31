@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
-import { getCategory, type ControlKind } from "../deviceRegistry";
+import {
+  getCategory,
+  getVacuumCommands,
+  type ControlKind,
+} from "../deviceRegistry";
 import { t } from "../i18n";
 import { deviceColorToHex, hexToDeviceColor } from "../status";
 import type { DeviceStatus } from "../types";
@@ -33,6 +37,7 @@ export function PhysicalControls({
   const [humidity, setHumidity] = useState(50);
   const [color, setColor] = useState("#ffffff");
   const category = getCategory(deviceType);
+  const vacuum = getVacuumCommands(deviceType);
 
   useEffect(() => {
     if (!status) return;
@@ -180,10 +185,14 @@ export function PhysicalControls({
       {controls.includes("vacuum") && (
         <ControlSection title={t("control.vacuum")}>
           <ActionRow>
-            <ActionButton primary onClick={() => send("start")} disabled={sending}>
+            <ActionButton
+              primary
+              onClick={() => send(vacuum.start, vacuum.startParameter)}
+              disabled={sending}
+            >
               {t("control.start")}
             </ActionButton>
-            <ActionButton onClick={() => send("stop")} disabled={sending}>
+            <ActionButton onClick={() => send(vacuum.stop)} disabled={sending}>
               {t("control.stop")}
             </ActionButton>
           </ActionRow>
