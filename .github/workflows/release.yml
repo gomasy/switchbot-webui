@@ -42,6 +42,7 @@ jobs:
           mkdir -p pkg/switchbot-webui
           cp target/release/switchbot-webui pkg/switchbot-webui/
           cp -r dist pkg/switchbot-webui/dist
+          cp -r locales pkg/switchbot-webui/locales
           tar -C pkg -czf "switchbot-webui-${{ matrix.target }}.tar.gz" switchbot-webui
       - name: Upload artifact
         uses: actions/upload-artifact@v7
