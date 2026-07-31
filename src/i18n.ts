@@ -3,7 +3,7 @@ type Catalog = Record<string, string>;
 const DEFAULT_LANG = "en";
 
 const catalogs: Record<string, Catalog> = {};
-export let lang: string = DEFAULT_LANG;
+let lang: string = DEFAULT_LANG;
 
 function detectLang(): string {
   const code = navigator.language.toLowerCase().split("-")[0];
