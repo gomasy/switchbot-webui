@@ -2,7 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { sendCommand, UnauthorizedError } from "./api";
 import { t, tFmt } from "./i18n";
 import { readStorage, writeStorage } from "./storage";
-import type { ToastFn, ToastType } from "./types";
+import type {
+  Device,
+  DeviceStatus,
+  InfraredDevice,
+  ToastFn,
+  ToastType,
+} from "./types";
 
 export interface Toast {
   id: number;
@@ -122,6 +128,93 @@ export function useSendCommand(deviceId: string, onToast: ToastFn) {
   };
 
   return { sending, send };
+}
+
+export interface LiveStatus {
+  status: DeviceStatus | null;
+  /**
+   * The current change version. Read it before an await to detect whether a
+   * realtime update landed while the request was in flight.
+   */
+  version: () => number;
+  /** Apply an optimistic local change, held until a newer fetch overtakes it. */
+  applyLocal: (fields: Partial<DeviceStatus>) => void;
+  /**
+   * Apply an authoritative fetch, re-applying every change newer than `since`
+   * (the version read before the request was issued).
+   */
+  applyFetched: (body: DeviceStatus, since: number) => void;
+}
+
+/**
+ * Track a device status written from three directions: authoritative fetches,
+ * realtime webhook updates, and optimistic local edits. Each non-fetch write
+ * bumps a version and is remembered per field, so a fetch that was already in
+ * flight when one happened re-applies it instead of reverting the UI to a
+ * value the server had not observed yet.
+ */
+export function useLiveStatus(
+  device: Device | InfraredDevice,
+  externalStatus?: DeviceStatus | null,
+): LiveStatus {
+  const [status, setStatus] = useState<DeviceStatus | null>(null);
+  const versionRef = useRef(0);
+  const changes = useRef<Record<string, { version: number; value: unknown }>>(
+    {},
+  );
+  // An external status already present at mount predates this component, so it
+  // is merged for an immediate first paint but not recorded as a change: the
+  // first fetch is the newer truth and must be allowed to replace it.
+  const initialExternal = useRef(externalStatus);
+  const deviceRef = useRef(device);
+  deviceRef.current = device;
+
+  // Merge, never replace: realtime updates are partial, so fields the status
+  // already carries have to survive one. The identity fields keep the result a
+  // well-formed status even when nothing has been fetched yet.
+  const merge = useCallback((fields: Partial<DeviceStatus>) => {
+    const d = deviceRef.current;
+    setStatus((prev) => ({
+      deviceId: d.deviceId,
+      deviceType: "deviceType" in d ? d.deviceType : "",
+      hubDeviceId: d.hubDeviceId,
+      ...prev,
+      ...fields,
+    }));
+  }, []);
+
+  const applyLocal = useCallback(
+    (fields: Partial<DeviceStatus>) => {
+      const version = ++versionRef.current;
+      for (const [field, value] of Object.entries(fields)) {
+        changes.current[field] = { version, value };
+      }
+      merge(fields);
+    },
+    [merge],
+  );
+
+  const applyFetched = useCallback((body: DeviceStatus, since: number) => {
+    const newer: Record<string, unknown> = {};
+    for (const [field, change] of Object.entries(changes.current)) {
+      if (change.version > since) newer[field] = change.value;
+    }
+    setStatus({ ...body, ...newer });
+  }, []);
+
+  const version = useCallback(() => versionRef.current, []);
+
+  useEffect(() => {
+    if (!externalStatus) return;
+    if (initialExternal.current === externalStatus) {
+      initialExternal.current = undefined;
+      merge(externalStatus);
+      return;
+    }
+    applyLocal(externalStatus);
+  }, [externalStatus, applyLocal, merge]);
+
+  return { status, version, applyLocal, applyFetched };
 }
 
 export function useStoredState<T>(key: string, fallback: T) {

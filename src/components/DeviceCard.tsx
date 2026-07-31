@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect } from "react";
 import { getDeviceStatus } from "../api";
 import { getControls, getDeviceIcon, getTypeLabel } from "../deviceRegistry";
-import { useSendCommand } from "../hooks";
+import { useLiveStatus, useSendCommand } from "../hooks";
 import { tFmt } from "../i18n";
 import { formatStatusSummary } from "../status";
-import type { Device, InfraredDevice, DeviceStatus, ToastFn } from "../types";
+import type { Device, DeviceStatus, InfraredDevice, ToastFn } from "../types";
 
 interface Props {
   device: Device | InfraredDevice;
@@ -24,36 +24,26 @@ export function DeviceCard({
   onClick,
   onToast,
 }: Props) {
-  const [status, setStatus] = useState<DeviceStatus | null>(null);
-  const externalStatusRef = useRef(externalStatus);
-  externalStatusRef.current = externalStatus;
+  const { status, version, applyLocal, applyFetched } = useLiveStatus(
+    device,
+    externalStatus,
+  );
   const { send } = useSendCommand(device.deviceId, onToast);
 
   useEffect(() => {
     if (isInfrared) return;
     let cancelled = false;
-    const externalAtStart = externalStatusRef.current;
+    const since = version();
     getDeviceStatus(device.deviceId)
       .then((res) => {
         if (cancelled || res.statusCode !== 100) return;
-        const latestExternal = externalStatusRef.current;
-        setStatus(
-          latestExternal !== externalAtStart
-            ? { ...res.body, ...latestExternal }
-            : res.body,
-        );
+        applyFetched(res.body, since);
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [device.deviceId, isInfrared, refreshSignal]);
-
-  // Merge (not replace): realtime webhook updates are partial, so keep any
-  // fields the card already fetched that the update doesn't mention.
-  useEffect(() => {
-    if (externalStatus) setStatus((prev) => ({ ...prev, ...externalStatus }));
-  }, [externalStatus]);
+  }, [device.deviceId, isInfrared, refreshSignal, version, applyFetched]);
 
   const isOn = status?.power === "on";
 
@@ -62,7 +52,7 @@ export function DeviceCard({
     const command = isOn ? "turnOff" : "turnOn";
     const newPower = command === "turnOn" ? "on" : "off";
     if (await send(command)) {
-      setStatus((prev) => (prev ? { ...prev, power: newPower } : prev));
+      applyLocal({ power: newPower });
       onToast(`${device.deviceName}: ${newPower.toUpperCase()}`, "success");
     }
   };

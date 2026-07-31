@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getDeviceStatus, UnauthorizedError } from "../api";
 import { getControls, getDeviceIcon, getTypeLabel } from "../deviceRegistry";
-import { useModalClose, useSendCommand } from "../hooks";
+import { useLiveStatus, useModalClose, useSendCommand } from "../hooks";
 import { t } from "../i18n";
 import { buildStatusItems } from "../status";
 import type { Device, InfraredDevice, DeviceStatus, ToastFn } from "../types";
@@ -26,11 +26,15 @@ export function DeviceDetail({
   onClose,
   onToast,
 }: Props) {
-  const [status, setStatus] = useState<DeviceStatus | null>(null);
   const [loading, setLoading] = useState(!isInfrared);
+  const { status, version, applyFetched } = useLiveStatus(
+    device,
+    externalStatus,
+  );
   const { sending, send: sendRaw } = useSendCommand(device.deviceId, onToast);
   const refetchTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const mounted = useRef(true);
+  const fetchGeneration = useRef(0);
 
   const dialogRef = useModalClose(onClose);
   useEffect(() => {
@@ -43,42 +47,51 @@ export function DeviceDetail({
 
   const fetchStatus = useCallback(async () => {
     if (isInfrared) return;
+    const generation = ++fetchGeneration.current;
+    const since = version();
     try {
       setLoading(true);
       const res = await getDeviceStatus(device.deviceId);
-      if (mounted.current && res.statusCode === 100) setStatus(res.body);
+      if (
+        mounted.current &&
+        generation === fetchGeneration.current &&
+        res.statusCode === 100
+      ) {
+        applyFetched(res.body, since);
+      }
     } catch (e) {
       // Unauthorized is handled globally; avoid a misleading failure toast.
       if (mounted.current && !(e instanceof UnauthorizedError)) {
         onToast(t("device.fetchStatusFailed"), "error");
       }
     } finally {
-      if (mounted.current) setLoading(false);
+      if (mounted.current && generation === fetchGeneration.current) {
+        setLoading(false);
+      }
     }
-  }, [device.deviceId, isInfrared, onToast]);
+  }, [device.deviceId, isInfrared, onToast, version, applyFetched]);
 
   useEffect(() => {
     fetchStatus();
   }, [fetchStatus]);
 
-  // Fold each realtime webhook into the fetched status (merge, not replace, so
-  // earlier partial events survive) and cancel any pending fallback refetch:
-  // the webhook already carries the change — including a color <-> color
-  // temperature switch the eventually-consistent refetch would lag — so the
-  // extra status request (and its daily-quota cost) is unnecessary.
+  // A realtime webhook already carries the change — including a color <-> color
+  // temperature switch the eventually-consistent refetch would lag — so cancel
+  // any pending fallback refetch and save the daily-quota cost of that request.
+  // Folding the update into the status itself is useLiveStatus's job.
   useEffect(() => {
-    if (!externalStatus) return;
-    clearTimeout(refetchTimer.current);
-    setStatus((prev) => ({ ...prev, ...externalStatus }));
+    if (externalStatus) clearTimeout(refetchTimer.current);
   }, [externalStatus]);
 
   const send: SendFn = async (command, parameter, commandType) => {
+    const versionBeforeSend = version();
     const succeeded = await sendRaw(command, parameter, commandType);
     if (!succeeded || !mounted.current) return succeeded;
 
     onToast(`${device.deviceName}: ${command}`, "success");
     if (!isInfrared) {
       clearTimeout(refetchTimer.current);
+      if (realtime && version() !== versionBeforeSend) return true;
       // With realtime on, let the webhook drive the update and keep the refetch
       // only as a fallback for when no notification arrives; the longer delay
       // gives the webhook time to land and cancel it. Without realtime, the
