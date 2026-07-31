@@ -2,6 +2,8 @@ import { isHub } from "./deviceRegistry";
 import { t } from "./i18n";
 import type { Device, InfraredDevice } from "./types";
 
+const NO_HUB_ID = "000000000000";
+
 export interface RoomDevice {
   device: Device | InfraredDevice;
   isInfrared: boolean;
@@ -51,6 +53,10 @@ export function groupRooms(
   }
 
   const roomMap = new Map<string, RoomDevice[]>();
+  const roomKey = (hubDeviceId: string, deviceName: string) =>
+    hubDeviceId && hubDeviceId !== NO_HUB_ID
+      ? hubDeviceId
+      : findHubByName(deviceName);
   function add(key: string, device: Device | InfraredDevice, isInfrared: boolean) {
     let devices = roomMap.get(key);
     if (!devices) {
@@ -64,11 +70,11 @@ export function groupRooms(
     if (isHub(d.deviceType)) {
       add(d.deviceId, d, false);
     } else {
-      add(d.hubDeviceId || findHubByName(d.deviceName), d, false);
+      add(roomKey(d.hubDeviceId, d.deviceName), d, false);
     }
   }
   for (const d of irDevices) {
-    add(d.hubDeviceId || findHubByName(d.deviceName), d, true);
+    add(roomKey(d.hubDeviceId, d.deviceName), d, true);
   }
 
   const fallback = t("room.other");
