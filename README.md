@@ -4,7 +4,12 @@ A web-based control panel using the SwitchBot API v1.1.
 
 ## Features
 
-- Device status display and control (power, brightness, color temperature, curtain, lock, etc.)
+- Device status display and control for every device family the SwitchBot API
+  documents — lights (including RGBIC and dual-channel ceiling lights), curtains,
+  roller shades, blind tilt, locks (deadbolt / night latch), plugs and relays,
+  robot vacuums (cleaning mode, suction, mop moisture, self-clean, volume),
+  humidifiers, air purifiers, circulator fans, radiator thermostats, garage door
+  openers, video doorbells, and the sensor-only devices
 - IR remote control (air conditioner, TV, light, fan, DVD/speaker/projector)
 - Custom button support for "Others" type remotes
 - Scene execution
