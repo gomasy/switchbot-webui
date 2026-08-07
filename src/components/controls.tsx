@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
+import type { DeviceStatus } from "../types";
 
 /** Send a command to a device (parameter/commandType default to "default"/"command"). */
 export type SendFn = (
@@ -7,6 +8,13 @@ export type SendFn = (
   parameter?: unknown,
   commandType?: string,
 ) => Promise<boolean>;
+
+/** What every device-specific control panel is handed. */
+export interface PanelProps {
+  status: DeviceStatus | null;
+  send: SendFn;
+  sending: boolean;
+}
 
 export function ControlSection({
   title,
@@ -149,6 +157,95 @@ export function SegmentControl<T extends string | number>({
         </button>
       ))}
     </div>
+  );
+}
+
+/**
+ * A one-line form for commands whose parameter is free text the API cannot
+ * enumerate for us — a user-defined remote button, a custom display message.
+ */
+export function TextCommandForm({
+  title,
+  placeholder,
+  submitLabel,
+  onSubmit,
+  disabled = false,
+}: {
+  title: string;
+  placeholder: string;
+  submitLabel: string;
+  onSubmit: (value: string) => void;
+  disabled?: boolean;
+}) {
+  const [value, setValue] = useState("");
+  return (
+    <ControlSection title={title}>
+      <form
+        className="custom-btn-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const trimmed = value.trim();
+          if (trimmed) onSubmit(trimmed);
+        }}
+      >
+        <input
+          type="text"
+          className="custom-btn-input"
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+        />
+        <button
+          type="submit"
+          className="action-btn action-btn-primary"
+          disabled={disabled || !value.trim()}
+        >
+          {submitLabel}
+        </button>
+      </form>
+    </ControlSection>
+  );
+}
+
+/**
+ * A two-button on/off pair. The button matching the current state is
+ * highlighted, as elsewhere in the app; when the state is unknown neither is.
+ */
+export function OnOffButtons({
+  on,
+  onSelect,
+  disabled = false,
+}: {
+  on?: boolean;
+  onSelect: (on: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <ActionRow>
+      <ActionButton primary={on === true} onClick={() => onSelect(true)} disabled={disabled}>
+        ON
+      </ActionButton>
+      <ActionButton primary={on === false} onClick={() => onSelect(false)} disabled={disabled}>
+        OFF
+      </ActionButton>
+    </ActionRow>
+  );
+}
+
+/** An on/off pair in a section of its own, for a setting such as a child lock. */
+export function ToggleRow({
+  title,
+  ...buttons
+}: {
+  title: string;
+  on?: boolean;
+  onSelect: (on: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <ControlSection title={title}>
+      <OnOffButtons {...buttons} />
+    </ControlSection>
   );
 }
 
