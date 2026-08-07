@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { t } from "../i18n";
 import type { InfraredDevice } from "../types";
 import { AcControls } from "./AcControls";
@@ -8,6 +7,7 @@ import {
   ControlSection,
   PowerButtons,
   SegmentControl,
+  TextCommandForm,
   type SendFn,
 } from "./controls";
 import { DiyButtons } from "./DiyButtons";
@@ -46,33 +46,14 @@ function VolumeButtons({ send, sending }: { send: SendFn; sending: boolean }) {
 }
 
 function FreeformButton({ send, sending }: { send: SendFn; sending: boolean }) {
-  const [name, setName] = useState("");
   return (
-    <ControlSection title={t("control.customButtons")}>
-      <form
-        className="custom-btn-form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const trimmed = name.trim();
-          if (trimmed) send(trimmed, "default", "customize");
-        }}
-      >
-        <input
-          type="text"
-          className="custom-btn-input"
-          placeholder={t("control.enterButtonName")}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <button
-          type="submit"
-          className="action-btn action-btn-primary"
-          disabled={sending || !name.trim()}
-        >
-          {t("control.send")}
-        </button>
-      </form>
-    </ControlSection>
+    <TextCommandForm
+      title={t("control.customButtons")}
+      placeholder={t("control.enterButtonName")}
+      submitLabel={t("control.send")}
+      disabled={sending}
+      onSubmit={(name) => send(name, "default", "customize")}
+    />
   );
 }
 
@@ -104,6 +85,14 @@ export function IrControls({ device, send, sending }: Props) {
           <PowerButtons send={send} sending={sending} />
           <VolumeButtons send={send} sending={sending} />
           <ControlSection title={t("control.channel")}>
+            <ActionRow>
+              <ActionButton onClick={() => send("channelSub")} disabled={sending}>
+                -
+              </ActionButton>
+              <ActionButton onClick={() => send("channelAdd")} disabled={sending}>
+                +
+              </ActionButton>
+            </ActionRow>
             <div className="channel-grid">
               {TV_CHANNELS.map((ch) => (
                 <button
@@ -204,6 +193,9 @@ export function IrControls({ device, send, sending }: Props) {
                   </ActionButton>
                   <ActionButton onClick={() => send("Pause")} disabled={sending}>
                     {t("control.pause")}
+                  </ActionButton>
+                  <ActionButton onClick={() => send("Stop")} disabled={sending}>
+                    {t("control.stop")}
                   </ActionButton>
                   <ActionButton onClick={() => send("Next")} disabled={sending}>
                     {t("control.next")}
