@@ -224,10 +224,8 @@ fn start_session(sessions: &Sessions) -> Option<HeaderValue> {
     Some(cookie)
 }
 
-/// True unless a browser marked this request as cross-site. Browsers set
-/// `Sec-Fetch-Site` on every fetch and a page cannot forge it, so it is a
-/// reliable CSRF guard. Clients that send neither header (curl, scripts) are
-/// allowed through: they carry no ambient cookie for an attacker to borrow.
+/// True when the request carries no `Origin`, or one whose authority is the host
+/// it was addressed to.
 fn origin_matches_host(headers: &HeaderMap) -> bool {
     let Some(origin) = headers.get(ORIGIN).and_then(|v| v.to_str().ok()) else {
         return true;
@@ -239,12 +237,15 @@ fn origin_matches_host(headers: &HeaderMap) -> bool {
         .unwrap_or(false)
 }
 
+/// True unless a browser marked this request as cross-site. `Sec-Fetch-Site` is
+/// set on every fetch and a page cannot forge it, so it decides on its own;
+/// older browsers fall back to `Origin`, which they still send cross-site.
+/// Clients sending neither (curl, scripts) pass: they carry no ambient cookie
+/// for an attacker to borrow.
 fn same_origin(headers: &HeaderMap) -> bool {
     if let Some(site) = headers.get("sec-fetch-site").and_then(|v| v.to_str().ok()) {
         return matches!(site, "same-origin" | "none");
     }
-    // Browsers predating Sec-Fetch-Site still send Origin on cross-site
-    // requests; compare it with the host the request was addressed to.
     origin_matches_host(headers)
 }
 
