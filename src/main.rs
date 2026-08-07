@@ -44,45 +44,39 @@ const SWITCHBOT_API: &str = "https://api.switch-bot.com";
 const JSON_CT: &str = "application/json";
 const MAX_BODY_BYTES: usize = 1024 * 1024;
 const DEFAULT_CACHE_TTL_SECS: u64 = 5;
-/// Upper bound on cached devices. Webhook payloads are unauthenticated, so a
-/// forged deviceMac must not be able to grow the cache without limit.
+/// Webhook payloads are unauthenticated, so a forged deviceMac must not be able
+/// to grow the cache without limit.
 const MAX_CACHE_ENTRIES: usize = 512;
-/// How long a session stays usable. Sessions are kept in memory only, so a
-/// restart ends them as well.
 const SESSION_TTL: Duration = Duration::from_secs(30 * 24 * 60 * 60);
 /// Delay after a failed login, doubled per consecutive failure. Attempts are
 /// serialized, so this is the real cost of a guess.
 const LOGIN_BASE_DELAY: Duration = Duration::from_millis(500);
 const LOGIN_MAX_DELAY: Duration = Duration::from_secs(30);
-/// Directory the built frontend is served from.
 const DIST_DIR: &str = "dist";
-/// Top-level paths the app router owns, including everything nested under them.
-/// `WEBHOOK_URL` may not point at any of these; keep in step with `main`.
+/// Top-level paths the app router owns, nested paths included. `WEBHOOK_URL` may
+/// not point at any of these; keep in step with `main`.
 const RESERVED_PATHS: &[&str] = &["/api", "/auth", "/config", "/locales", "/ws"];
-/// How long an upstream SwitchBot request may take. Also the window in which a
-/// cache slot's generation still has to be honoured; see `make_room`.
+/// Upstream request timeout, and therefore the window in which a cache slot's
+/// generation still has to be honoured; see `make_room`.
 const UPSTREAM_TIMEOUT: Duration = Duration::from_secs(30);
 
-/// Print an error and exit when a required configuration value is missing.
 fn die(msg: impl std::fmt::Display) -> ! {
     eprintln!("Error: {msg}");
     process::exit(1);
 }
 
-/// A cached device-status response body with the instant it was fetched.
 struct CacheEntry {
     fetched: Instant,
     body: Vec<u8>,
 }
 
 /// Cache slot for one device. The generation outlives the body: it keeps
-/// counting invalidations so a response fetched before one can be recognized
-/// as stale even though the body it would replace is already gone.
+/// counting invalidations so a response fetched before one can be recognized as
+/// stale even though the body it would replace is already gone. `touched` bounds
+/// how long that generation still matters; see `make_room`.
 struct Slot {
     entry: Option<CacheEntry>,
     generation: u64,
-    /// When this slot was last written, which bounds how long its generation
-    /// still matters. See `make_room`.
     touched: Instant,
 }
 
@@ -114,9 +108,8 @@ enum Session {
 struct Sessions(Mutex<HashMap<SessionId, Instant>>);
 
 impl Sessions {
-    /// True when this id names a session that has not expired yet. Reads only:
-    /// entries are reaped by `start`, so the request path never pays for a
-    /// scan of every session just to answer one membership question.
+    /// True when this id names a session that has not expired yet. Reads only —
+    /// `start` reaps, so a membership test never scans every session.
     fn is_live(&self, id: &SessionId) -> bool {
         lock(&self.0)
             .get(id)
@@ -160,8 +153,7 @@ struct AppState {
     cache_ttl: Duration,
 }
 
-/// Every response this server writes itself is JSON, so that header is set in
-/// exactly one place.
+/// Every response this server writes itself is JSON, so the header is set once.
 fn json_response(status: StatusCode, body: impl Into<Body>) -> Response {
     (status, [(CONTENT_TYPE, JSON_CT)], body.into()).into_response()
 }
@@ -255,9 +247,9 @@ fn websocket_origin_allowed(headers: &HeaderMap) -> bool {
     same_origin(headers) && origin_matches_host(headers)
 }
 
-/// Refuse state-changing requests a browser reports as cross-site, so no
-/// handler has to remember the check and a new route cannot forget it. Reads
-/// pass through: without CORS headers their responses stay unreadable anyway.
+/// Refuse state-changing requests a browser reports as cross-site, so a new
+/// route cannot forget the check. Reads pass through: without CORS headers
+/// their responses stay unreadable anyway.
 async fn reject_cross_site(req: Request<Body>, next: axum::middleware::Next) -> Response {
     if !matches!(*req.method(), Method::GET | Method::HEAD) && !same_origin(req.headers()) {
         return error_response(StatusCode::FORBIDDEN);
@@ -412,13 +404,9 @@ fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 }
 
 /// Whether the cache will accept this key: already tracked, or room can be made
-/// for it. Bounded because an unauthenticated webhook chooses some of these
-/// keys, and the cheap length test comes first so the common case costs nothing.
-///
-/// Making room drops idle slots rather than arbitrary ones. A slot's generation
-/// exists to recognize a response that was already in flight when the device
-/// changed, and no request outlives `UPSTREAM_TIMEOUT`, so past that point the
-/// generation guards nothing and the slot is safe to forget.
+/// for it. Room is made by dropping idle slots only. A slot's generation exists
+/// to recognize a response that was in flight when the device changed, and no
+/// request outlives `UPSTREAM_TIMEOUT`, so past that point it guards nothing.
 fn make_room(cache: &mut HashMap<String, Slot>, key: &str) -> bool {
     if cache.len() < MAX_CACHE_ENTRIES || cache.contains_key(key) {
         return true;
@@ -475,17 +463,16 @@ fn store_status(state: &AppState, key: &str, generation: u64, body: Vec<u8>) {
 async fn api_proxy(State(state): State<Arc<AppState>>, req: Request<Body>) -> Response {
     let (parts, body) = req.into_parts();
     if authorize(&state, &parts.headers).is_none() {
-        // Attach WWW-Authenticate only to our own auth rejection so the frontend
-        // can distinguish it from an upstream SwitchBot API 401
+        // WWW-Authenticate marks our own rejection, so the frontend can tell it
+        // apart from an upstream SwitchBot 401.
         let mut resp = error_response(StatusCode::UNAUTHORIZED);
         resp.headers_mut()
             .insert(WWW_AUTHENTICATE, HeaderValue::from_static("Cookie"));
         return resp;
     }
 
-    // `nest_service("/api/")` has already stripped the prefix, so this is the
-    // upstream path as-is. Stripping it again here would rewrite a genuine
-    // `/api/api/...` request into something the caller never asked for.
+    // `nest_service("/api/")` already stripped the prefix. Stripping it again
+    // would rewrite a genuine `/api/api/...` into something else entirely.
     let upstream_path = parts
         .uri
         .path_and_query()
@@ -609,9 +596,8 @@ async fn handle_socket(mut socket: WebSocket, state: Arc<AppState>, session: Ses
 /// and drop the device's cached status so the next poll reflects the change.
 ///
 /// SwitchBot does not sign its webhooks, so this endpoint cannot authenticate
-/// its caller. Everything that does not carry a plausible device identifier is
-/// therefore dropped before it can touch the cache or reach a browser; the
-/// frontend ignores updates without a deviceMac anyway.
+/// its caller. Anything without a plausible device identifier is dropped before
+/// it can touch the cache or reach a browser.
 async fn webhook(State(state): State<Arc<AppState>>, body: Bytes) -> StatusCode {
     let Ok(payload) = serde_json::from_slice::<serde_json::Value>(&body) else {
         return StatusCode::BAD_REQUEST;
@@ -734,7 +720,6 @@ async fn unregister_webhook(state: &AppState, url: &str) {
 
 #[tokio::main]
 async fn main() {
-    // Load .env if present; ignore if missing
     let dotenv_loaded = dotenvy::dotenv().is_ok();
 
     let token = env::var("SWITCHBOT_TOKEN").unwrap_or_else(|_| die("SWITCHBOT_TOKEN must be set"));
