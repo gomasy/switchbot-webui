@@ -58,7 +58,7 @@ const LOGIN_MAX_DELAY: Duration = Duration::from_secs(30);
 const DIST_DIR: &str = "dist";
 /// Top-level paths the app router owns, including everything nested under them.
 /// `WEBHOOK_URL` may not point at any of these; keep in step with `main`.
-const RESERVED_PATHS: [&str; 5] = ["/api", "/auth", "/config", "/locales", "/ws"];
+const RESERVED_PATHS: &[&str] = &["/api", "/auth", "/config", "/locales", "/ws"];
 
 /// Print an error and exit when a required configuration value is missing.
 fn die(msg: impl std::fmt::Display) -> ! {
@@ -145,10 +145,18 @@ struct AppState {
     cache_ttl: Duration,
 }
 
+/// Every response this server writes itself is JSON, so that header is set in
+/// exactly one place.
+fn json_response(status: StatusCode, body: impl Into<Body>) -> Response {
+    (status, [(CONTENT_TYPE, JSON_CT)], body.into()).into_response()
+}
+
 fn error_response(status: StatusCode) -> Response {
     let code = status.as_u16();
-    let body = format!(r#"{{"statusCode":{code},"message":"{status}"}}"#);
-    (status, [(CONTENT_TYPE, JSON_CT)], body).into_response()
+    json_response(
+        status,
+        format!(r#"{{"statusCode":{code},"message":"{status}"}}"#),
+    )
 }
 
 fn hash_token(token: &str) -> String {
@@ -287,12 +295,14 @@ async fn logout(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Respo
 /// Expose the flags the frontend needs before rendering: whether the UI
 /// requires a login and whether realtime updates are available.
 async fn config(State(state): State<Arc<AppState>>) -> Response {
-    let body = format!(
-        r#"{{"authEnabled":{},"realtime":{}}}"#,
-        state.auth_hash.is_some(),
-        state.realtime,
-    );
-    (StatusCode::OK, [(CONTENT_TYPE, JSON_CT)], body).into_response()
+    json_response(
+        StatusCode::OK,
+        format!(
+            r#"{{"authEnabled":{},"realtime":{}}}"#,
+            state.auth_hash.is_some(),
+            state.realtime,
+        ),
+    )
 }
 
 /// Build SwitchBot API v1.1 auth headers (token + HMAC-SHA256 signature).
@@ -466,9 +476,7 @@ async fn api_proxy(State(state): State<Arc<AppState>>, req: Request<Body>) -> Re
     let mut pending_store = None;
     if let Some(key) = cache_key {
         match lookup_status(&state, &key, state.cache_ttl) {
-            CacheLookup::Hit(body) => {
-                return (StatusCode::OK, [(CONTENT_TYPE, JSON_CT)], body).into_response();
-            }
+            CacheLookup::Hit(body) => return json_response(StatusCode::OK, body),
             CacheLookup::Miss(generation) => pending_store = Some((key, generation)),
         }
     }
@@ -501,7 +509,7 @@ async fn api_proxy(State(state): State<Arc<AppState>>, req: Request<Body>) -> Re
                             store_status(&state, key, generation, bytes.to_vec());
                         }
                     }
-                    (status, [(CONTENT_TYPE, JSON_CT)], bytes).into_response()
+                    json_response(status, bytes)
                 }
                 Err(_) => error_response(StatusCode::BAD_GATEWAY),
             }
