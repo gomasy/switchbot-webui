@@ -327,6 +327,55 @@ export function formatPosition(
   return category === "curtain" ? `0,ff,${position}` : `${position}`;
 }
 
+/**
+ * The control layout an infrared remote gets. Coarser than the icon categories
+ * above: everything with transport controls and a volume rocker is one `player`,
+ * and anything unrecognized still answers turnOn/turnOff.
+ */
+export type RemoteKind =
+  | "airConditioner"
+  | "tv"
+  | "player"
+  | "light"
+  | "fan"
+  | "others"
+  | "unknown";
+
+export interface RemoteProfile {
+  kind: RemoteKind;
+  /**
+   * A DIY remote replays codes its owner recorded button by button, so it has
+   * none of the extras its kind normally documents — only the recorded buttons.
+   */
+  diy: boolean;
+}
+
+/**
+ * remoteType substrings mapped to a remote kind, in priority order. No SwitchBot
+ * remote type matches two of these rows today; the order fixes what would happen
+ * if one ever did.
+ */
+const REMOTE_PATTERNS: [string[], RemoteKind][] = [
+  [["air conditioner"], "airConditioner"],
+  [["tv", "iptv", "streamer", "set top box"], "tv"],
+  [["dvd", "speaker", "projector"], "player"],
+  [["fan"], "fan"],
+  [["light"], "light"],
+];
+
+/** How to lay out the controls for an infrared remote. */
+export function getRemoteProfile(remoteType: string): RemoteProfile {
+  const rt = remoteType.toLowerCase();
+  // "Others" is the API's own escape hatch: no command set at all, just a name
+  // the user types. A DIY variant of it would mean nothing.
+  if (rt === "others") return { kind: "others", diy: false };
+  const diy = rt.startsWith("diy");
+  for (const [patterns, kind] of REMOTE_PATTERNS) {
+    if (patterns.some((p) => rt.includes(p))) return { kind, diy };
+  }
+  return { kind: "unknown", diy };
+}
+
 /** Return deviceType for physical devices, remoteType for infrared devices. */
 export function getTypeLabel(device: Device | InfraredDevice): string {
   return "remoteType" in device ? device.remoteType : device.deviceType;

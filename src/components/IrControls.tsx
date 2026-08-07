@@ -1,3 +1,4 @@
+import { getRemoteProfile } from "../deviceRegistry";
 import { t } from "../i18n";
 import type { InfraredDevice } from "../types";
 import { AcControls } from "./AcControls";
@@ -58,29 +59,18 @@ function FreeformButton({ send, sending }: { send: SendFn; sending: boolean }) {
 }
 
 export function IrControls({ device, send, sending }: Props) {
-  const remoteType = device.remoteType.toLowerCase();
-  const isAC = remoteType.includes("air conditioner");
-  const isTV =
-    remoteType.includes("tv") ||
-    remoteType.includes("iptv") ||
-    remoteType.includes("streamer") ||
-    remoteType.includes("set top box");
-  const isFan = remoteType.includes("fan");
-  const isLight = remoteType.includes("light");
-  const isDVDSpeaker =
-    remoteType.includes("dvd") ||
-    remoteType.includes("speaker") ||
-    remoteType.includes("projector");
-  const isDIY = remoteType.startsWith("diy");
-  const isOthers = remoteType === "others";
-  const isUnknown =
-    !isAC && !isTV && !isFan && !isLight && !isDVDSpeaker && !isDIY && !isOthers;
+  const { kind, diy } = getRemoteProfile(device.remoteType);
+  // A remote we cannot place still answers turnOn/turnOff. A DIY one does not
+  // even promise that much, so it is left with the buttons its owner recorded.
+  const unclassified = kind === "unknown" && !diy;
 
   return (
     <>
-      {isAC && <AcControls device={device} send={send} sending={sending} />}
+      {kind === "airConditioner" && (
+        <AcControls device={device} send={send} sending={sending} />
+      )}
 
-      {isTV && (
+      {kind === "tv" && (
         <>
           <PowerButtons send={send} sending={sending} />
           <VolumeButtons send={send} sending={sending} />
@@ -109,7 +99,7 @@ export function IrControls({ device, send, sending }: Props) {
         </>
       )}
 
-      {isFan && (
+      {kind === "fan" && (
         <>
           <PowerButtons send={send} sending={sending} />
           <ControlSection title={t("control.fanSpeed")}>
@@ -132,7 +122,7 @@ export function IrControls({ device, send, sending }: Props) {
         </>
       )}
 
-      {isLight && (
+      {kind === "light" && (
         <>
           <PowerButtons send={send} sending={sending} />
           <ControlSection title={t("control.brightness")}>
@@ -151,7 +141,7 @@ export function IrControls({ device, send, sending }: Props) {
               </ActionButton>
             </ActionRow>
           </ControlSection>
-          {!isDIY && (
+          {!diy && (
             <ControlSection>
               <ActionRow>
                 <ActionButton
@@ -166,10 +156,10 @@ export function IrControls({ device, send, sending }: Props) {
         </>
       )}
 
-      {isDVDSpeaker && (
+      {kind === "player" && (
         <>
           <PowerButtons send={send} sending={sending} />
-          {!isDIY && (
+          {!diy && (
             <>
               <VolumeButtons send={send} sending={sending} />
               <ControlSection title={t("control.playback")}>
@@ -207,13 +197,13 @@ export function IrControls({ device, send, sending }: Props) {
         </>
       )}
 
-      {!isOthers && !isUnknown && (
+      {kind !== "others" && !unclassified && (
         <DiyButtons device={device} send={send} sending={sending} />
       )}
 
-      {isOthers && <FreeformButton send={send} sending={sending} />}
+      {kind === "others" && <FreeformButton send={send} sending={sending} />}
 
-      {isUnknown && <PowerButtons send={send} sending={sending} />}
+      {unclassified && <PowerButtons send={send} sending={sending} />}
     </>
   );
 }
