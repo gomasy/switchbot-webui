@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getFanProfile } from "../deviceRegistry";
 import { t } from "../i18n";
+import { childLockOf } from "../status";
 import type { DeviceStatus } from "../types";
 import {
   ControlSection,
@@ -13,13 +14,6 @@ import {
 /** The mode integer the API reports, or undefined when it reports a string. */
 function numericMode(status: DeviceStatus | null): number | undefined {
   return typeof status?.mode === "number" ? status.mode : undefined;
-}
-
-function childLockOf(status: DeviceStatus | null): boolean | undefined {
-  const lock = status?.childLock;
-  if (typeof lock === "boolean") return lock;
-  if (typeof lock === "number") return lock === 1;
-  return undefined;
 }
 
 const purifierModes = () =>

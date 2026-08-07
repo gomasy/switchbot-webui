@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { t } from "../i18n";
-import { deviceColorToHex, hexToDeviceColor } from "../status";
+import { deviceColorToHex, hexToDeviceColor, isAnyPowerOn } from "../status";
 import {
   ControlSection,
   OnOffButtons,
@@ -36,13 +36,11 @@ export function DualLightControls({ status, send, sending }: PanelProps) {
     if (status.colorLightRGB) setColor(deviceColorToHex(status.colorLightRGB));
   }, [status]);
 
-  const anyOn = status?.power === "on" || status?.power === "partial";
-
   return (
     <>
       <PowerToggle
         on={status?.power === "on"}
-        onToggle={() => send(anyOn ? "turnOff" : "turnOn")}
+        onToggle={() => send(isAnyPowerOn(status) ? "turnOff" : "turnOn")}
         disabled={sending}
       />
 

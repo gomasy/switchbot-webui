@@ -22,7 +22,7 @@ const LOWERCASED_FIELDS = [
 ] as const;
 
 /** Fold the casing of state fields as a status enters the app. Mutates in place. */
-export function normalizeStatusCase<T extends Partial<DeviceStatus>>(status: T): T {
+function normalizeStatusCase<T extends Partial<DeviceStatus>>(status: T): T {
   for (const field of LOWERCASED_FIELDS) {
     const value = status[field];
     if (typeof value === "string") status[field] = value.toLowerCase();
@@ -78,6 +78,25 @@ function isEnabled(value: boolean | number | string): boolean {
   if (typeof value === "boolean") return value;
   if (typeof value === "number") return value === 1;
   return value.toLowerCase() === "on" || value.toLowerCase() === "true";
+}
+
+/**
+ * The child lock, which the device families that have one report as a boolean,
+ * as a 0/1 integer or as an "on"/"off" string. Undefined when unreported, which
+ * the on/off buttons render as "neither selected".
+ */
+export function childLockOf(status: DeviceStatus | null): boolean | undefined {
+  const lock = status?.childLock;
+  return lock === undefined ? undefined : isEnabled(lock);
+}
+
+/**
+ * True when anything on the device is on. A dual-channel light reports
+ * "partial" while only one of its two channels is lit, and turnOff is what
+ * takes it from there to fully off.
+ */
+export function isAnyPowerOn(status: DeviceStatus | null | undefined): boolean {
+  return status?.power === "on" || status?.power === "partial";
 }
 
 /**

@@ -6,7 +6,7 @@ import {
   type ControlKind,
 } from "../deviceRegistry";
 import { t } from "../i18n";
-import { deviceColorToHex, hexToDeviceColor } from "../status";
+import { childLockOf, deviceColorToHex, hexToDeviceColor } from "../status";
 import {
   Humidifier2Controls,
   PurifierControls,
@@ -364,7 +364,7 @@ export function PhysicalControls({
           </ControlSection>
           <ToggleRow
             title={t("control.childLock")}
-            on={typeof status?.childLock === "string" ? status.childLock === "on" : undefined}
+            on={childLockOf(status)}
             onSelect={(on) => send("childLock", on ? "on" : "off")}
             disabled={sending}
           />
