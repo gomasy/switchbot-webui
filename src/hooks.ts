@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { sendCommand, UnauthorizedError } from "./api";
+import { getDeviceStatus, sendCommand, UnauthorizedError } from "./api";
 import { t, tFmt } from "./i18n";
 import { readStorage, writeStorage } from "./storage";
 import type {
@@ -130,6 +130,13 @@ export function useSendCommand(deviceId: string, onToast: ToastFn) {
   return { sending, send };
 }
 
+/**
+ * How a `refresh()` ended. `superseded` means the caller must leave its own
+ * state alone: the component unmounted, or a newer refresh took over and will
+ * report for itself.
+ */
+export type RefreshResult = "ok" | "failed" | "unauthorized" | "superseded";
+
 export interface LiveStatus {
   status: DeviceStatus | null;
   /**
@@ -140,10 +147,11 @@ export interface LiveStatus {
   /** Apply an optimistic local change, held until a newer fetch overtakes it. */
   applyLocal: (fields: Partial<DeviceStatus>) => void;
   /**
-   * Apply an authoritative fetch, re-applying every change newer than `since`
-   * (the version read before the request was issued).
+   * Re-read the status from the API and fold it in, keeping every local and
+   * realtime change that happened while the request was in flight. Stable
+   * across renders, so it is safe to list in an effect's dependencies.
    */
-  applyFetched: (body: DeviceStatus, since: number) => void;
+  refresh: () => Promise<RefreshResult>;
 }
 
 /**
@@ -194,6 +202,8 @@ export function useLiveStatus(
     [merge],
   );
 
+  // Apply an authoritative fetch, re-applying every change newer than `since`
+  // (the version read before the request was issued).
   const applyFetched = useCallback((body: DeviceStatus, since: number) => {
     const newer: Record<string, unknown> = {};
     for (const [field, change] of Object.entries(changes.current)) {
@@ -203,6 +213,35 @@ export function useLiveStatus(
   }, []);
 
   const version = useCallback(() => versionRef.current, []);
+
+  // Only the newest refresh may write; an older one that is still in flight has
+  // been overtaken and its body is the older truth.
+  const fetchGeneration = useRef(0);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  const refresh = useCallback(async (): Promise<RefreshResult> => {
+    const generation = ++fetchGeneration.current;
+    const since = versionRef.current;
+    const current = () =>
+      mounted.current && generation === fetchGeneration.current;
+    try {
+      const res = await getDeviceStatus(deviceRef.current.deviceId);
+      if (!current()) return "superseded";
+      if (res.statusCode !== 100) return "failed";
+      applyFetched(res.body, since);
+      return "ok";
+    } catch (e) {
+      if (!current()) return "superseded";
+      // Unauthorized is handled globally, by switching to the login screen.
+      return e instanceof UnauthorizedError ? "unauthorized" : "failed";
+    }
+  }, [applyFetched]);
 
   useEffect(() => {
     if (!externalStatus) return;
@@ -214,7 +253,7 @@ export function useLiveStatus(
     applyLocal(externalStatus);
   }, [externalStatus, applyLocal, merge]);
 
-  return { status, version, applyLocal, applyFetched };
+  return { status, version, applyLocal, refresh };
 }
 
 export function useStoredState<T>(key: string, fallback: T) {

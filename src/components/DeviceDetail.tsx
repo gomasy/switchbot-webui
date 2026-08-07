@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getDeviceStatus, UnauthorizedError } from "../api";
 import { getControls, getDeviceIcon, getTypeLabel } from "../deviceRegistry";
 import { useLiveStatus, useModalClose, useSendCommand } from "../hooks";
 import { t } from "../i18n";
@@ -27,14 +26,10 @@ export function DeviceDetail({
   onToast,
 }: Props) {
   const [loading, setLoading] = useState(!isInfrared);
-  const { status, version, applyFetched } = useLiveStatus(
-    device,
-    externalStatus,
-  );
+  const { status, version, refresh } = useLiveStatus(device, externalStatus);
   const { sending, send: sendRaw } = useSendCommand(device.deviceId, onToast);
   const refetchTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const mounted = useRef(true);
-  const fetchGeneration = useRef(0);
 
   const dialogRef = useModalClose(onClose);
   useEffect(() => {
@@ -47,29 +42,14 @@ export function DeviceDetail({
 
   const fetchStatus = useCallback(async () => {
     if (isInfrared) return;
-    const generation = ++fetchGeneration.current;
-    const since = version();
-    try {
-      setLoading(true);
-      const res = await getDeviceStatus(device.deviceId);
-      if (
-        mounted.current &&
-        generation === fetchGeneration.current &&
-        res.statusCode === 100
-      ) {
-        applyFetched(res.body, since);
-      }
-    } catch (e) {
-      // Unauthorized is handled globally; avoid a misleading failure toast.
-      if (mounted.current && !(e instanceof UnauthorizedError)) {
-        onToast(t("device.fetchStatusFailed"), "error");
-      }
-    } finally {
-      if (mounted.current && generation === fetchGeneration.current) {
-        setLoading(false);
-      }
-    }
-  }, [device.deviceId, isInfrared, onToast, version, applyFetched]);
+    setLoading(true);
+    const result = await refresh();
+    // A newer refresh (or an unmount) owns the outcome from here on.
+    if (result === "superseded") return;
+    // Unauthorized is handled globally; avoid a misleading failure toast.
+    if (result === "failed") onToast(t("device.fetchStatusFailed"), "error");
+    setLoading(false);
+  }, [isInfrared, onToast, refresh]);
 
   useEffect(() => {
     fetchStatus();

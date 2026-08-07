@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { getDeviceStatus } from "../api";
 import { getDeviceIcon, getTypeLabel, hasPowerCommand } from "../deviceRegistry";
 import { useLiveStatus, useSendCommand } from "../hooks";
 import { tFmt } from "../i18n";
@@ -24,26 +23,14 @@ export function DeviceCard({
   onClick,
   onToast,
 }: Props) {
-  const { status, version, applyLocal, applyFetched } = useLiveStatus(
-    device,
-    externalStatus,
-  );
+  const { status, applyLocal, refresh } = useLiveStatus(device, externalStatus);
   const { send } = useSendCommand(device.deviceId, onToast);
 
   useEffect(() => {
-    if (isInfrared) return;
-    let cancelled = false;
-    const since = version();
-    getDeviceStatus(device.deviceId)
-      .then((res) => {
-        if (cancelled || res.statusCode !== 100) return;
-        applyFetched(res.body, since);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [device.deviceId, isInfrared, refreshSignal, version, applyFetched]);
+    // A failed refresh leaves the card on its last known status, which beats
+    // replacing a wall of cards with a wall of error toasts.
+    if (!isInfrared) refresh();
+  }, [device.deviceId, isInfrared, refreshSignal, refresh]);
 
   const isOn = status?.power === "on";
 
