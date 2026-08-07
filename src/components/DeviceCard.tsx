@@ -3,7 +3,7 @@ import { getDeviceStatus } from "../api";
 import { getDeviceIcon, getTypeLabel, hasPowerCommand } from "../deviceRegistry";
 import { useLiveStatus, useSendCommand } from "../hooks";
 import { tFmt } from "../i18n";
-import { formatStatusSummary } from "../status";
+import { formatStatusSummary, isAnyPowerOn } from "../status";
 import type { Device, DeviceStatus, InfraredDevice, ToastFn } from "../types";
 
 interface Props {
@@ -49,7 +49,9 @@ export function DeviceCard({
 
   const handleToggle = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const command = isOn ? "turnOff" : "turnOn";
+    // "partial" (one channel of a dual light) counts as on, so the toggle
+    // finishes turning the device off rather than turning the rest of it on.
+    const command = isAnyPowerOn(status) ? "turnOff" : "turnOn";
     const newPower = command === "turnOn" ? "on" : "off";
     if (await send(command)) {
       applyLocal({ power: newPower });
