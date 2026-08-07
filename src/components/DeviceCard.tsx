@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { getDeviceStatus } from "../api";
-import { getControls, getDeviceIcon, getTypeLabel } from "../deviceRegistry";
+import { getDeviceIcon, getTypeLabel, hasPowerCommand } from "../deviceRegistry";
 import { useLiveStatus, useSendCommand } from "../hooks";
 import { tFmt } from "../i18n";
 import { formatStatusSummary } from "../status";
@@ -58,7 +58,7 @@ export function DeviceCard({
   };
 
   const typeLabel = getTypeLabel(device);
-  const canToggle = !isInfrared && getControls(typeLabel).includes("power");
+  const canToggle = !isInfrared && hasPowerCommand(typeLabel);
   const statusText = isInfrared ? typeLabel : formatStatusSummary(status);
   const battery = status?.battery;
   const lowBattery = typeof battery === "number" && battery <= 20;
