@@ -209,7 +209,7 @@ export function TextCommandForm({
 
 /**
  * A two-button on/off pair. The button matching the current state is
- * highlighted, as elsewhere in the app; when the state is unknown neither is.
+ * highlighted; when the state is unknown, neither is.
  */
 export function OnOffButtons({
   on,

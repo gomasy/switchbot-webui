@@ -56,9 +56,9 @@ export function DeviceDetail({
   }, [fetchStatus]);
 
   // A realtime webhook already carries the change — including a color <-> color
-  // temperature switch the eventually-consistent refetch would lag — so cancel
-  // any pending fallback refetch and save the daily-quota cost of that request.
-  // Folding the update into the status itself is useLiveStatus's job.
+  // temperature switch the eventually-consistent refetch would lag — so drop the
+  // pending fallback refetch and save its daily-quota cost. Folding the update
+  // into the status itself is useLiveStatus's job.
   useEffect(() => {
     if (externalStatus) clearTimeout(refetchTimer.current);
   }, [externalStatus]);
@@ -72,10 +72,9 @@ export function DeviceDetail({
     if (!isInfrared) {
       clearTimeout(refetchTimer.current);
       if (realtime && version() !== versionBeforeSend) return true;
-      // With realtime on, let the webhook drive the update and keep the refetch
-      // only as a fallback for when no notification arrives; the longer delay
-      // gives the webhook time to land and cancel it. Without realtime, the
-      // refetch is the only update path, so fire it promptly.
+      // With realtime on the webhook drives the update and this is only a
+      // fallback, so the delay gives the webhook time to land and cancel it.
+      // Without realtime it is the only update path, so fire it promptly.
       refetchTimer.current = setTimeout(fetchStatus, realtime ? 5000 : 1000);
     }
     return true;

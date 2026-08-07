@@ -34,10 +34,10 @@ function normalizeStatusCase<T extends Partial<DeviceStatus>>(status: T): T {
 export function normalizeDeviceStatus<T extends Partial<DeviceStatus>>(status: T): T {
   normalizeStatusCase(status);
   // Metering devices (plugs, relays) report instantaneous watts in `power`
-  // rather than an on/off state. Move it to `weight` and drop it, so `power`
-  // holds a state everywhere downstream. Deleting rather than clearing matters:
-  // these statuses get spread over one another, and an explicit `undefined`
-  // would erase a good value from an earlier update.
+  // rather than an on/off state; move it to `weight` so `power` holds a state
+  // everywhere downstream. Deleting rather than clearing matters: these statuses
+  // get spread over one another, and an explicit `undefined` would erase a good
+  // value from an earlier update.
   const raw = status as { power?: unknown; weight?: number };
   if (typeof raw.power === "number") {
     if (typeof raw.weight !== "number") raw.weight = raw.power;
@@ -81,9 +81,9 @@ function isEnabled(value: boolean | number | string): boolean {
 }
 
 /**
- * The child lock, which the device families that have one report as a boolean,
- * as a 0/1 integer or as an "on"/"off" string. Undefined when unreported, which
- * the on/off buttons render as "neither selected".
+ * The child lock, reported as a boolean, a 0/1 integer or an "on"/"off" string
+ * depending on the device family. Undefined when unreported, which the on/off
+ * buttons render as "neither selected".
  */
 export function childLockOf(status: DeviceStatus | null): boolean | undefined {
   const lock = status?.childLock;
@@ -100,9 +100,9 @@ export function isAnyPowerOn(status: DeviceStatus | null | undefined): boolean {
 }
 
 /**
- * `mode` is an integer whose meaning is device-specific, and a plain string on
- * the circulator fans. Translate it where we know the scale, and otherwise show
- * what the API said rather than a meaningless number.
+ * `mode` is an integer whose meaning is device-specific (a plain string on the
+ * circulator fans). Labels for the scales we know; anything else is shown as the
+ * API reported it rather than as a meaningless number.
  */
 const NUMERIC_MODES: Partial<Record<string, string[]>> = {
   purifier: ["purifier.normal", "purifier.auto", "purifier.sleep", "purifier.pet"],

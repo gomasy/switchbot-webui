@@ -74,8 +74,8 @@ export function DeviceCard({
       <div className="device-card-status">{statusText}</div>
       {canToggle && (
         // A button, not a <label> wrapping a checkbox: clicking such a label
-        // fires the handler twice (once directly, once via the click it
-        // forwards to the input), which sent every command to the API twice.
+        // fires the handler twice (directly, then via the click it forwards to
+        // the input), which sent every command to the API twice.
         <button
           type="button"
           className="toggle device-card-toggle"

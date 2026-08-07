@@ -36,9 +36,9 @@ const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /**
- * Wire up the shared modal behaviour: close on Escape or browser back, lock
- * background scrolling, and keep keyboard focus inside the dialog until it
- * closes. Attach the returned ref to the dialog element.
+ * Shared modal behaviour: close on Escape or browser back, lock background
+ * scrolling, keep keyboard focus inside the dialog. Attach the returned ref to
+ * the dialog element.
  */
 export function useModalClose(close: () => void) {
   const closeRef = useRef(close);
@@ -132,8 +132,7 @@ export function useSendCommand(deviceId: string, onToast: ToastFn) {
 
 /**
  * How a `refresh()` ended. `superseded` means the caller must leave its own
- * state alone: the component unmounted, or a newer refresh took over and will
- * report for itself.
+ * state alone: it unmounted, or a newer refresh took over and reports for itself.
  */
 export type RefreshResult = "ok" | "failed" | "unauthorized" | "superseded";
 
@@ -148,8 +147,8 @@ export interface LiveStatus {
   applyLocal: (fields: Partial<DeviceStatus>) => void;
   /**
    * Re-read the status from the API and fold it in, keeping every local and
-   * realtime change that happened while the request was in flight. Stable
-   * across renders, so it is safe to list in an effect's dependencies.
+   * realtime change that happened while the request was in flight. Stable across
+   * renders, so it is safe to list in an effect's dependencies.
    */
   refresh: () => Promise<RefreshResult>;
 }
@@ -157,9 +156,9 @@ export interface LiveStatus {
 /**
  * Track a device status written from three directions: authoritative fetches,
  * realtime webhook updates, and optimistic local edits. Each non-fetch write
- * bumps a version and is remembered per field, so a fetch that was already in
- * flight when one happened re-applies it instead of reverting the UI to a
- * value the server had not observed yet.
+ * bumps a version and is remembered per field, so a fetch already in flight when
+ * one happened re-applies it instead of reverting the UI to a value the server
+ * had not observed yet.
  */
 export function useLiveStatus(
   device: Device | InfraredDevice,
@@ -170,9 +169,9 @@ export function useLiveStatus(
   const changes = useRef<Record<string, { version: number; value: unknown }>>(
     {},
   );
-  // An external status already present at mount predates this component, so it
-  // is merged for an immediate first paint but not recorded as a change: the
-  // first fetch is the newer truth and must be allowed to replace it.
+  // An external status present at mount predates this component: merged for an
+  // immediate first paint, but not recorded as a change, since the first fetch
+  // is the newer truth and must be allowed to replace it.
   const initialExternal = useRef(externalStatus);
   const deviceRef = useRef(device);
   deviceRef.current = device;

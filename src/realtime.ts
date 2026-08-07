@@ -62,9 +62,9 @@ const MAIN_LIGHT_FIELDS: [string, string][] = [
 ];
 
 /**
- * Map a SwitchBot webhook `context` object onto the DeviceStatus fields the UI
- * renders. Webhook payloads vary by device type, so every field is optional and
- * only copied when present. Returns null when the device can't be identified.
+ * Map a SwitchBot webhook `context` onto the DeviceStatus fields the UI renders.
+ * Payloads vary by device type, so every field is copied only when present.
+ * Returns null when the device can't be identified.
  */
 export function normalizeWebhook(ctx: Record<string, unknown>): StatusUpdate | null {
   const deviceId = typeof ctx.deviceMac === "string" ? ctx.deviceMac : null;
@@ -123,9 +123,9 @@ export function normalizeWebhook(ctx: Record<string, unknown>): StatusUpdate | n
 const MAX_BACKOFF_MS = 30_000;
 
 /**
- * Keep a WebSocket to `/ws` open while `enabled` is true and deliver each
- * normalized device update to `onUpdate`. Reconnects with exponential backoff
- * so transient drops (sleep/wake, network blips) recover on their own.
+ * Keep a WebSocket to `/ws` open while `enabled`, delivering each normalized
+ * update to `onUpdate`. Reconnects with exponential backoff so transient drops
+ * (sleep/wake, network blips) recover on their own.
  */
 export function useRealtime(
   enabled: boolean,

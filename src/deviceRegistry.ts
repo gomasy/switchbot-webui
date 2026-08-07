@@ -124,11 +124,9 @@ const CATEGORIES: Record<DeviceCategory, CategoryInfo> = {
 const VACUUM_MODELS = ["k10", "k11", "k20", "s10", "s20"];
 
 /**
- * Vacuum models that speak the newer startClean/pause command set instead of
- * start/stop. Kept next to VACUUM_MODELS so the two cannot drift: a model
- * missing from that list is never categorized as a vacuum in the first place.
- * "combo" covers the K10+ Pro Combo, which shares the K10+ name but not its
- * command set.
+ * Vacuum models speaking the newer startClean/pause command set instead of
+ * start/stop. "combo" covers the K10+ Pro Combo, which shares the K10+ name but
+ * not its command set.
  */
 const ADVANCED_VACUUM_MODELS = ["s10", "s20", "k20", "k11", "combo"];
 
@@ -142,9 +140,9 @@ function matchesModel(deviceType: string, models: string[]): boolean {
 
 /**
  * deviceType substrings mapped to a category, in priority order. Order is the
- * whole specification here: several product names contain another product's
- * name ("Smart Radiator Thermostat" contains "thermo", "Blind Tilt" contains
- * "blind"), so the more specific pattern has to be tested first.
+ * whole specification: several product names contain another product's name
+ * ("Smart Radiator Thermostat" contains "thermo", "Blind Tilt" contains
+ * "blind"), so the more specific pattern has to come first.
  */
 const CATEGORY_PATTERNS: [string[], DeviceCategory][] = [
   [["thermostat"], "thermostat"],
@@ -218,25 +216,24 @@ export function isHub(deviceType: string): boolean {
 }
 
 /**
- * Whether turnOn/turnOff drive this device, which is what a card's toggle
- * sends. A dual-channel light has no plain power control of its own, but the
- * pair still switches both of its channels at once.
+ * Whether turnOn/turnOff drive this device, which is what a card's toggle sends.
+ * A dual-channel light has no plain power control of its own, but the pair still
+ * switches both channels at once.
  */
 export function hasPowerCommand(deviceType: string): boolean {
   return getControls(deviceType).some((c) => c === "power" || c === "dualLight");
 }
 
 export interface VacuumProfile {
-  /** Command that starts a clean, and whether it carries a parameter. */
   start: string;
   stop: string;
   /** True for the startClean generation, which also accepts setVolume. */
   advanced: boolean;
   /** Cleaning modes accepted by startClean; empty for the start/stop models. */
   modes: string[];
-  /** Only models with a water base accept a mop moisture level. */
+  /** Only models with a water base accept a mop moisture level... */
   mopping: boolean;
-  /** Only the water-base models can wash and dry their own mop. */
+  /** ...or can wash and dry their own mop. */
   selfClean: boolean;
 }
 
@@ -329,8 +326,7 @@ export function formatPosition(
 
 /**
  * The control layout an infrared remote gets. Coarser than the icon categories
- * above: everything with transport controls and a volume rocker is one `player`,
- * and anything unrecognized still answers turnOn/turnOff.
+ * above: everything with transport controls and a volume rocker is one `player`.
  */
 export type RemoteKind =
   | "airConditioner"
@@ -351,9 +347,8 @@ export interface RemoteProfile {
 }
 
 /**
- * remoteType substrings mapped to a remote kind, in priority order. No SwitchBot
- * remote type matches two of these rows today; the order fixes what would happen
- * if one ever did.
+ * remoteType substrings mapped to a remote kind. No SwitchBot remote type
+ * matches two of these rows today; the order fixes what happens if one ever does.
  */
 const REMOTE_PATTERNS: [string[], RemoteKind][] = [
   [["air conditioner"], "airConditioner"],
@@ -363,7 +358,6 @@ const REMOTE_PATTERNS: [string[], RemoteKind][] = [
   [["light"], "light"],
 ];
 
-/** How to lay out the controls for an infrared remote. */
 export function getRemoteProfile(remoteType: string): RemoteProfile {
   const rt = remoteType.toLowerCase();
   // "Others" is the API's own escape hatch: no command set at all, just a name
