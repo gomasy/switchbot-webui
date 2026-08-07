@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import { normalizeStatusCase } from "./status";
+import { getCategory } from "./deviceRegistry";
+import { normalizeDeviceStatus } from "./status";
 import type { DeviceStatus } from "./types";
 
 /** A subset of DeviceStatus derived from a webhook, always carrying deviceId. */
@@ -17,15 +18,47 @@ const NUMBER_FIELDS = [
   "switchStatus",
   "switch1Status",
   "switch2Status",
+  "doorStatus",
+  "CO2",
+  "lightLevel",
+  "fanSpeed",
+  "position",
+  "waterBaseBattery",
+  "colorLightBrightness",
 ];
 const STRING_FIELDS = [
   "deviceType",
   "color",
   "openState",
   "workingStatus",
+  "taskType",
   "onlineStatus",
   "lockState",
   "doorState",
+  "direction",
+  "nightStatus",
+  "oscillation",
+  "verticalOscillation",
+  "chargingStatus",
+  "isStuck",
+];
+const BOOLEAN_FIELDS = ["moveDetected", "drying", "calibrate", "group", "moving", "online"];
+/** Fields the API reports in more than one shape, so they are copied as-is. */
+const ANY_FIELDS = ["mode", "childLock"];
+/** Webhook names for fields the status API spells differently. */
+const RENAMED_FIELDS: [string, string][] = [
+  ["colorLightPowerState", "colorLightPower"],
+  ["colorLightColor", "colorLightRGB"],
+];
+/**
+ * A dual-channel light reports its main channel under the plain light field
+ * names in webhooks, but under mainLight* in the status API. Rename them so
+ * both paths feed the same controls.
+ */
+const MAIN_LIGHT_FIELDS: [string, string][] = [
+  ["power", "mainLightPower"],
+  ["brightness", "mainLightBrightness"],
+  ["colorTemperature", "mainLightColorTemp"],
 ];
 
 /**
@@ -46,23 +79,45 @@ export function normalizeWebhook(ctx: Record<string, unknown>): StatusUpdate | n
   for (const field of STRING_FIELDS) {
     if (typeof ctx[field] === "string") sink[field] = ctx[field];
   }
+  for (const field of BOOLEAN_FIELDS) {
+    if (typeof ctx[field] === "boolean") sink[field] = ctx[field];
+  }
+  for (const field of ANY_FIELDS) {
+    const value = ctx[field];
+    if (value !== undefined && value !== null) sink[field] = value;
+  }
+  for (const [from, to] of RENAMED_FIELDS) {
+    if (ctx[from] !== undefined) sink[to] = ctx[from];
+  }
 
   // Webhooks name it powerState; a few payloads use power. Prefer powerState
-  // when it is present and usable.
-  const power =
-    typeof ctx.powerState === "string" ? ctx.powerState : ctx.power;
-  if (typeof power === "string") out.power = power;
+  // when it is present, and leave a numeric power to normalizeDeviceStatus,
+  // which knows it is a wattage rather than a state.
+  const power = ctx.powerState !== undefined ? ctx.powerState : ctx.power;
+  if (typeof power === "string" || typeof power === "number") sink.power = power;
+
+  // Done after `power` is resolved above, since the main light's state arrives
+  // as the payload's plain powerState.
+  if (getCategory(out.deviceType) === "dualLight") {
+    for (const [from, to] of MAIN_LIGHT_FIELDS) {
+      if (sink[from] !== undefined) {
+        sink[to] = sink[from];
+        delete sink[from];
+      }
+    }
+  }
 
   if (typeof ctx.detectionState === "number") {
     out.waterDetected = ctx.detectionState === 1;
   } else if (typeof ctx.detectionState === "string") {
-    out.moveDetected = ctx.detectionState === "DETECTED";
-  }
-  if (!out.power && typeof out.switchStatus === "number") {
-    out.power = out.switchStatus === 1 ? "on" : "off";
+    const detected = ctx.detectionState === "DETECTED";
+    // The Presence Sensor reports occupancy, which its status API calls
+    // Detected; every other sensor reporting this field means motion.
+    if (getCategory(out.deviceType) === "presence") out.Detected = detected;
+    else out.moveDetected = detected;
   }
 
-  return normalizeStatusCase(out);
+  return normalizeDeviceStatus(out);
 }
 
 const MAX_BACKOFF_MS = 30_000;
