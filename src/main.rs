@@ -59,6 +59,9 @@ const DIST_DIR: &str = "dist";
 /// Top-level paths the app router owns, including everything nested under them.
 /// `WEBHOOK_URL` may not point at any of these; keep in step with `main`.
 const RESERVED_PATHS: &[&str] = &["/api", "/auth", "/config", "/locales", "/ws"];
+/// How long an upstream SwitchBot request may take. Also the window in which a
+/// cache slot's generation still has to be honoured; see `make_room`.
+const UPSTREAM_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Print an error and exit when a required configuration value is missing.
 fn die(msg: impl std::fmt::Display) -> ! {
@@ -75,10 +78,22 @@ struct CacheEntry {
 /// Cache slot for one device. The generation outlives the body: it keeps
 /// counting invalidations so a response fetched before one can be recognized
 /// as stale even though the body it would replace is already gone.
-#[derive(Default)]
 struct Slot {
     entry: Option<CacheEntry>,
     generation: u64,
+    /// When this slot was last written, which bounds how long its generation
+    /// still matters. See `make_room`.
+    touched: Instant,
+}
+
+impl Default for Slot {
+    fn default() -> Self {
+        Self {
+            entry: None,
+            generation: 0,
+            touched: Instant::now(),
+        }
+    }
 }
 
 /// SHA-256 of the value carried in an auth cookie. Only the digest is stored,
@@ -395,23 +410,40 @@ fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
         .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
-/// Whether the cache will accept this key: already tracked, or still under the
-/// cap. Bounded because an unauthenticated webhook chooses some of these keys,
-/// and the cheap length test comes first so the common case costs no lookup.
-fn has_room(cache: &HashMap<String, Slot>, key: &str) -> bool {
-    cache.len() < MAX_CACHE_ENTRIES || cache.contains_key(key)
+/// Whether the cache will accept this key: already tracked, or room can be made
+/// for it. Bounded because an unauthenticated webhook chooses some of these
+/// keys, and the cheap length test comes first so the common case costs nothing.
+///
+/// Making room drops idle slots rather than arbitrary ones. A slot's generation
+/// exists to recognize a response that was already in flight when the device
+/// changed, and no request outlives `UPSTREAM_TIMEOUT`, so past that point the
+/// generation guards nothing and the slot is safe to forget.
+fn make_room(cache: &mut HashMap<String, Slot>, key: &str) -> bool {
+    if cache.len() < MAX_CACHE_ENTRIES || cache.contains_key(key) {
+        return true;
+    }
+    cache.retain(|_, slot| slot.touched.elapsed() < UPSTREAM_TIMEOUT);
+    cache.len() < MAX_CACHE_ENTRIES
+}
+
+/// The slot for this device, or None when the cache is full of live entries.
+fn slot_mut<'a>(cache: &'a mut HashMap<String, Slot>, key: &str) -> Option<&'a mut Slot> {
+    if !make_room(cache, key) {
+        return None;
+    }
+    let slot = cache.entry(key.to_string()).or_default();
+    slot.touched = Instant::now();
+    Some(slot)
 }
 
 /// Drop the cached body and bump the generation, so any response already in
 /// flight for this device is recognized as stale and refused by `store_status`.
 fn invalidate_status(state: &AppState, key: &str) {
     let mut cache = lock(&state.status_cache);
-    if !has_room(&cache, key) {
-        return;
+    if let Some(slot) = slot_mut(&mut cache, key) {
+        slot.generation = slot.generation.wrapping_add(1);
+        slot.entry = None;
     }
-    let slot = cache.entry(key.to_string()).or_default();
-    slot.generation = slot.generation.wrapping_add(1);
-    slot.entry = None;
 }
 
 fn lookup_status(state: &AppState, key: &str, ttl: Duration) -> CacheLookup {
@@ -427,13 +459,11 @@ fn lookup_status(state: &AppState, key: &str, ttl: Duration) -> CacheLookup {
 
 /// Store a fetched status, unless the device was invalidated while the request
 /// was in flight — that response predates the change and must not be cached.
-fn store_status(state: &AppState, key: String, generation: u64, body: Vec<u8>) {
+fn store_status(state: &AppState, key: &str, generation: u64, body: Vec<u8>) {
     let mut cache = lock(&state.status_cache);
-    if !has_room(&cache, &key) {
-        return;
-    }
-    let slot = cache.entry(key).or_default();
-    if slot.generation == generation {
+    if let Some(slot) = slot_mut(&mut cache, key)
+        && slot.generation == generation
+    {
         slot.entry = Some(CacheEntry {
             fetched: Instant::now(),
             body,
@@ -506,7 +536,7 @@ async fn api_proxy(State(state): State<Arc<AppState>>, req: Request<Body>) -> Re
                             invalidate_status(&state, &key);
                         }
                         if let Some((key, generation)) = pending_store {
-                            store_status(&state, key, generation, bytes.to_vec());
+                            store_status(&state, &key, generation, bytes.to_vec());
                         }
                     }
                     json_response(status, bytes)
@@ -735,7 +765,7 @@ async fn main() {
         .map(|url| webhook_config(&url, Path::new(DIST_DIR)).unwrap_or_else(|e| die(e)));
 
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(30))
+        .timeout(UPSTREAM_TIMEOUT)
         .build()
         .unwrap_or_else(|e| die(format!("failed to build HTTP client: {e}")));
 
@@ -892,19 +922,40 @@ mod tests {
         );
     }
 
+    /// A cache filled to the cap with slots written `age` ago.
+    fn full_cache(age: Duration) -> HashMap<String, Slot> {
+        let touched = Instant::now().checked_sub(age).unwrap_or_else(Instant::now);
+        (0..MAX_CACHE_ENTRIES)
+            .map(|i| {
+                let slot = Slot {
+                    touched,
+                    ..Slot::default()
+                };
+                (format!("device-{i}"), slot)
+            })
+            .collect()
+    }
+
     #[test]
     fn caps_the_status_cache_without_locking_out_known_devices() {
-        let mut cache = HashMap::new();
-        for i in 0..MAX_CACHE_ENTRIES {
-            cache.insert(format!("device-{i}"), Slot::default());
-        }
-        // Full: a device that is already tracked still gets through, a new one
-        // (which a forged webhook could name) does not.
-        assert!(has_room(&cache, "device-0"));
-        assert!(!has_room(&cache, "device-new"));
+        let mut cache = full_cache(Duration::ZERO);
+        // Full of slots that a request could still be racing: a device that is
+        // already tracked gets through, a new one (which a forged webhook could
+        // name) does not.
+        assert!(make_room(&mut cache, "device-0"));
+        assert!(!make_room(&mut cache, "device-new"));
 
         cache.remove("device-0");
-        assert!(has_room(&cache, "device-new"));
+        assert!(make_room(&mut cache, "device-new"));
+    }
+
+    #[test]
+    fn reclaims_cache_slots_no_request_can_still_be_racing() {
+        // Nothing has touched these since before the upstream timeout, so no
+        // response is still in flight against their generations.
+        let mut cache = full_cache(UPSTREAM_TIMEOUT + Duration::from_secs(1));
+        assert!(make_room(&mut cache, "device-new"));
+        assert!(cache.is_empty(), "idle slots should have been reclaimed");
     }
 
     #[test]
