@@ -8,7 +8,8 @@ RUN npm ci
 COPY src/ src/
 COPY locales/ locales/
 COPY scripts/ scripts/
-COPY tsconfig.json ./
+COPY parcel-plugins/ parcel-plugins/
+COPY tsconfig.json .parcelrc ./
 RUN npm run build
 
 FROM rust:1-alpine AS backend
