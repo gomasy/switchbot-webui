@@ -90,6 +90,9 @@ npm run dev
 
 Runs the Parcel dev server and Rust backend concurrently. Access at http://localhost:3000.
 
+The frontend lives in `src/`, the axum proxy in `backend/`; `locales/` is served
+as-is at runtime.
+
 ### Production
 
 ```bash

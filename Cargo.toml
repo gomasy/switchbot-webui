@@ -1,6 +1,14 @@
 [package]
 name = "switchbot-webui"
 edition = "2024"
+# The Rust sources live under backend/ so src/ holds only the frontend, which is
+# what Parcel and tsconfig.json point at. Cargo.toml stays at the repository
+# root, so build.rs still runs with package.json and .git beside it.
+build = "backend/build.rs"
+
+[[bin]]
+name = "switchbot-webui"
+path = "backend/main.rs"
 
 [dependencies]
 axum = { version = "0.8.9", features = ["ws"] }

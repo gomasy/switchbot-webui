@@ -18,11 +18,13 @@ ENV GIT_HASH=$GIT_HASH BUILD_DATE=$BUILD_DATE
 # reqwest is built against rustls, so no OpenSSL toolchain is needed here.
 RUN apk add --no-cache musl-dev ca-certificates
 WORKDIR /app
-COPY Cargo.toml Cargo.lock build.rs ./
-RUN mkdir src && echo 'fn main() {}' > src/main.rs && cargo build --release --locked && rm src/main.rs
+COPY Cargo.toml Cargo.lock ./
+COPY backend/build.rs backend/
+# Cache the dependency build against a stub, before any source is copied.
+RUN echo 'fn main() {}' > backend/main.rs && cargo build --release --locked && rm backend/main.rs
 COPY package.json ./
-COPY src/main.rs src/main.rs
-RUN touch src/main.rs && cargo build --release --locked
+COPY backend/ backend/
+RUN touch backend/main.rs && cargo build --release --locked
 
 FROM scratch
 WORKDIR /app
