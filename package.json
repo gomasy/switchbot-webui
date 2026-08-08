@@ -6,7 +6,7 @@
   "source": "src/index.html",
   "scripts": {
     "dev": "npm run clean && node scripts/gen-version.mjs && concurrently -k \"parcel watch\" \"cargo run\"",
-    "build": "npm run clean && node scripts/gen-version.mjs && parcel build",
+    "build": "npm run clean && node scripts/gen-version.mjs && parcel build --no-source-maps",
     "start": "cargo run --release",
     "clean": "rm -rf dist .parcel-cache"
   },
