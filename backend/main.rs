@@ -28,7 +28,10 @@ use std::{
     time::{Duration, Instant, SystemTime},
 };
 use tokio::sync::broadcast;
-use tower_http::services::{ServeDir, ServeFile};
+
+mod static_files;
+
+use static_files::DIST_DIR;
 
 const VERSION: &str = concat!(
     "v",
@@ -52,7 +55,6 @@ const SESSION_TTL: Duration = Duration::from_secs(30 * 24 * 60 * 60);
 /// serialized, so this is the real cost of a guess.
 const LOGIN_BASE_DELAY: Duration = Duration::from_millis(500);
 const LOGIN_MAX_DELAY: Duration = Duration::from_secs(30);
-const DIST_DIR: &str = "dist";
 /// Top-level paths the app router owns, nested paths included. `WEBHOOK_URL` may
 /// not point at any of these; keep in step with `main`.
 const RESERVED_PATHS: &[&str] = &["/api", "/auth", "/config", "/locales", "/ws"];
@@ -783,11 +785,7 @@ async fn main() {
     if let Some((_, path)) = &webhook_settings {
         app = app.route(path, post(webhook).with_state(state.clone()));
     }
-    let app = app
-        .nest_service("/locales", ServeDir::new("locales"))
-        .fallback_service(
-            ServeDir::new(DIST_DIR).fallback(ServeFile::new(format!("{DIST_DIR}/index.html"))),
-        );
+    let app = app.merge(static_files::router());
 
     println!("══════════════════════════════════════════");
     println!("  SwitchBot WebUI {VERSION}");
