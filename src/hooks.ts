@@ -153,6 +153,12 @@ export interface LiveStatus {
   refresh: () => Promise<RefreshResult>;
 }
 
+/** A field written outside a fetch, and the version at which that happened. */
+interface FieldChange {
+  version: number;
+  value: unknown;
+}
+
 /**
  * Track a device status written from three directions: authoritative fetches,
  * realtime webhook updates, and optimistic local edits. Each non-fetch write
@@ -166,9 +172,7 @@ export function useLiveStatus(
 ): LiveStatus {
   const [status, setStatus] = useState<DeviceStatus | null>(null);
   const versionRef = useRef(0);
-  const changes = useRef<Record<string, { version: number; value: unknown }>>(
-    {},
-  );
+  const changes = useRef<Record<string, FieldChange>>({});
   // An external status present at mount predates this component: merged for an
   // immediate first paint, but not recorded as a change, since the first fetch
   // is the newer truth and must be allowed to replace it.
@@ -202,12 +206,17 @@ export function useLiveStatus(
   );
 
   // Apply an authoritative fetch, re-applying every change newer than `since`
-  // (the version read before the request was issued).
+  // (the version read before the request was issued). Older ones are dropped:
+  // the body carries them now.
   const applyFetched = useCallback((body: DeviceStatus, since: number) => {
     const newer: Record<string, unknown> = {};
+    const survivors: Record<string, FieldChange> = {};
     for (const [field, change] of Object.entries(changes.current)) {
-      if (change.version > since) newer[field] = change.value;
+      if (change.version <= since) continue;
+      newer[field] = change.value;
+      survivors[field] = change;
     }
+    changes.current = survivors;
     setStatus({ ...body, ...newer });
   }, []);
 
