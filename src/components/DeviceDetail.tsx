@@ -40,9 +40,10 @@ export function DeviceDetail({
     };
   }, []);
 
+  // Only the first fetch draws the spinner; the refetch after a command would
+  // otherwise blank the panel out from under the control being used.
   const fetchStatus = useCallback(async () => {
     if (isInfrared) return;
-    setLoading(true);
     const result = await refresh();
     // A newer refresh (or an unmount) owns the outcome from here on.
     if (result === "superseded") return;
