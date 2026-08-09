@@ -32,13 +32,13 @@ export function DeviceCard({
     if (!isInfrared) refresh();
   }, [device.deviceId, isInfrared, refreshSignal, refresh]);
 
-  const isOn = status?.power === "on";
+  // "partial" (one channel of a dual light) counts as on, so the switch reads as
+  // on and the toggle finishes turning the device off rather than the rest on.
+  const isOn = isAnyPowerOn(status);
 
   const handleToggle = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    // "partial" (one channel of a dual light) counts as on, so the toggle
-    // finishes turning the device off rather than turning the rest of it on.
-    const command = isAnyPowerOn(status) ? "turnOff" : "turnOn";
+    const command = isOn ? "turnOff" : "turnOn";
     const newPower = command === "turnOn" ? "on" : "off";
     if (await send(command)) {
       applyLocal({ power: newPower });
