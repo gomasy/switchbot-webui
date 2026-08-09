@@ -4,6 +4,7 @@ import { t } from "../i18n";
 import {
   ActionButton,
   ActionRow,
+  ButtonSection,
   ControlSection,
   SegmentControl,
   Slider,
@@ -97,19 +98,17 @@ export function VacuumControls({ deviceType, send, sending }: Props) {
       )}
 
       {profile.selfClean && (
-        <ControlSection title={t("control.selfClean")}>
-          <ActionRow>
-            <ActionButton onClick={() => send("selfClean", 1)} disabled={sending}>
-              {t("control.washMop")}
-            </ActionButton>
-            <ActionButton onClick={() => send("selfClean", 2)} disabled={sending}>
-              {t("control.dryMop")}
-            </ActionButton>
-            <ActionButton onClick={() => send("selfClean", 3)} disabled={sending}>
-              {t("control.stop")}
-            </ActionButton>
-          </ActionRow>
-        </ControlSection>
+        <ButtonSection title={t("control.selfClean")}>
+          <ActionButton onClick={() => send("selfClean", 1)} disabled={sending}>
+            {t("control.washMop")}
+          </ActionButton>
+          <ActionButton onClick={() => send("selfClean", 2)} disabled={sending}>
+            {t("control.dryMop")}
+          </ActionButton>
+          <ActionButton onClick={() => send("selfClean", 3)} disabled={sending}>
+            {t("control.stop")}
+          </ActionButton>
+        </ButtonSection>
       )}
 
       {profile.advanced && (

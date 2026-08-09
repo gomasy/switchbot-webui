@@ -16,6 +16,7 @@ import {
 import {
   ActionButton,
   ActionRow,
+  ButtonSection,
   ControlSection,
   OnOffButtons,
   PowerToggle,
@@ -90,13 +91,11 @@ export function PhysicalControls({
       )}
 
       {controls.includes("press") && (
-        <ControlSection>
-          <ActionRow>
-            <ActionButton primary onClick={() => send("press")} disabled={sending}>
-              Press
-            </ActionButton>
-          </ActionRow>
-        </ControlSection>
+        <ButtonSection>
+          <ActionButton primary onClick={() => send("press")} disabled={sending}>
+            Press
+          </ActionButton>
+        </ButtonSection>
       )}
 
       {controls.includes("brightness") && (
@@ -299,16 +298,14 @@ export function PhysicalControls({
 
       {controls.includes("artFrame") && (
         <>
-          <ControlSection title={t("control.image")}>
-            <ActionRow>
-              <ActionButton onClick={() => send("previous")} disabled={sending}>
-                {t("control.prev")}
-              </ActionButton>
-              <ActionButton onClick={() => send("next")} disabled={sending}>
-                {t("control.next")}
-              </ActionButton>
-            </ActionRow>
-          </ControlSection>
+          <ButtonSection title={t("control.image")}>
+            <ActionButton onClick={() => send("previous")} disabled={sending}>
+              {t("control.prev")}
+            </ActionButton>
+            <ActionButton onClick={() => send("next")} disabled={sending}>
+              {t("control.next")}
+            </ActionButton>
+          </ButtonSection>
           <TextCommandForm
             title={t("control.uploadImage")}
             placeholder="https://..."
@@ -335,13 +332,11 @@ export function PhysicalControls({
             disabled={sending}
             onSubmit={(text) => send("customPage", text)}
           />
-          <ControlSection>
-            <ActionRow>
-              <ActionButton onClick={() => send("cancelCustom")} disabled={sending}>
-                {t("control.cancelCustom")}
-              </ActionButton>
-            </ActionRow>
-          </ControlSection>
+          <ButtonSection>
+            <ActionButton onClick={() => send("cancelCustom")} disabled={sending}>
+              {t("control.cancelCustom")}
+            </ActionButton>
+          </ButtonSection>
         </>
       )}
 
@@ -355,13 +350,11 @@ export function PhysicalControls({
               disabled={sending}
             />
           </ControlSection>
-          <ControlSection>
-            <ActionRow>
-              <ActionButton primary onClick={() => send("backHome")} disabled={sending}>
-                {t("control.backHome")}
-              </ActionButton>
-            </ActionRow>
-          </ControlSection>
+          <ButtonSection>
+            <ActionButton primary onClick={() => send("backHome")} disabled={sending}>
+              {t("control.backHome")}
+            </ActionButton>
+          </ButtonSection>
           <ToggleRow
             title={t("control.childLock")}
             on={childLockOf(status)}

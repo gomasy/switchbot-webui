@@ -5,6 +5,7 @@ import { AcControls } from "./AcControls";
 import {
   ActionButton,
   ActionRow,
+  ButtonSection,
   ControlSection,
   PowerButtons,
   SegmentControl,
@@ -30,19 +31,17 @@ const TV_CHANNELS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 function VolumeButtons({ send, sending }: { send: SendFn; sending: boolean }) {
   return (
-    <ControlSection title={t("control.volume")}>
-      <ActionRow>
-        <ActionButton onClick={() => send("volumeSub")} disabled={sending}>
-          -
-        </ActionButton>
-        <ActionButton onClick={() => send("setMute")} disabled={sending}>
-          {t("control.mute")}
-        </ActionButton>
-        <ActionButton onClick={() => send("volumeAdd")} disabled={sending}>
-          +
-        </ActionButton>
-      </ActionRow>
-    </ControlSection>
+    <ButtonSection title={t("control.volume")}>
+      <ActionButton onClick={() => send("volumeSub")} disabled={sending}>
+        -
+      </ActionButton>
+      <ActionButton onClick={() => send("setMute")} disabled={sending}>
+        {t("control.mute")}
+      </ActionButton>
+      <ActionButton onClick={() => send("volumeAdd")} disabled={sending}>
+        +
+      </ActionButton>
+    </ButtonSection>
   );
 }
 
@@ -109,49 +108,43 @@ export function IrControls({ device, send, sending }: Props) {
               disabled={sending}
             />
           </ControlSection>
-          <ControlSection>
-            <ActionRow>
-              <ActionButton onClick={() => send("swing")} disabled={sending}>
-                {t("control.swing")}
-              </ActionButton>
-              <ActionButton onClick={() => send("timer")} disabled={sending}>
-                {t("control.timer")}
-              </ActionButton>
-            </ActionRow>
-          </ControlSection>
+          <ButtonSection>
+            <ActionButton onClick={() => send("swing")} disabled={sending}>
+              {t("control.swing")}
+            </ActionButton>
+            <ActionButton onClick={() => send("timer")} disabled={sending}>
+              {t("control.timer")}
+            </ActionButton>
+          </ButtonSection>
         </>
       )}
 
       {kind === "light" && (
         <>
           <PowerButtons send={send} sending={sending} />
-          <ControlSection title={t("control.brightness")}>
-            <ActionRow>
-              <ActionButton
-                onClick={() => send("brightnessDown")}
-                disabled={sending}
-              >
-                -
-              </ActionButton>
-              <ActionButton
-                onClick={() => send("brightnessUp")}
-                disabled={sending}
-              >
-                +
-              </ActionButton>
-            </ActionRow>
-          </ControlSection>
+          <ButtonSection title={t("control.brightness")}>
+            <ActionButton
+              onClick={() => send("brightnessDown")}
+              disabled={sending}
+            >
+              -
+            </ActionButton>
+            <ActionButton
+              onClick={() => send("brightnessUp")}
+              disabled={sending}
+            >
+              +
+            </ActionButton>
+          </ButtonSection>
           {!diy && (
-            <ControlSection>
-              <ActionRow>
-                <ActionButton
-                  onClick={() => send("colorTemperature")}
-                  disabled={sending}
-                >
-                  {t("control.colorTempToggle")}
-                </ActionButton>
-              </ActionRow>
-            </ControlSection>
+            <ButtonSection>
+              <ActionButton
+                onClick={() => send("colorTemperature")}
+                disabled={sending}
+              >
+                {t("control.colorTempToggle")}
+              </ActionButton>
+            </ButtonSection>
           )}
         </>
       )}

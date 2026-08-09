@@ -45,6 +45,21 @@ export function ActionRow({
   );
 }
 
+/** A section whose whole content is one row of buttons. */
+export function ButtonSection({
+  title,
+  children,
+}: {
+  title?: string;
+  children: ReactNode;
+}) {
+  return (
+    <ControlSection title={title}>
+      <ActionRow>{children}</ActionRow>
+    </ControlSection>
+  );
+}
+
 export function ActionButton({
   primary = false,
   onClick,
@@ -282,15 +297,13 @@ export function PowerButtons({
   sending: boolean;
 }) {
   return (
-    <ControlSection>
-      <ActionRow>
-        <ActionButton primary onClick={() => send("turnOn")} disabled={sending}>
-          ON
-        </ActionButton>
-        <ActionButton onClick={() => send("turnOff")} disabled={sending}>
-          OFF
-        </ActionButton>
-      </ActionRow>
-    </ControlSection>
+    <ButtonSection>
+      <ActionButton primary onClick={() => send("turnOn")} disabled={sending}>
+        ON
+      </ActionButton>
+      <ActionButton onClick={() => send("turnOff")} disabled={sending}>
+        OFF
+      </ActionButton>
+    </ButtonSection>
   );
 }
