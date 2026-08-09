@@ -100,6 +100,9 @@ struct Slot {
     entry: Option<CacheEntry>,
     generation: u64,
     touched: Instant,
+    /// Held across the upstream status request, so concurrent readers of one
+    /// device cost a single call rather than one apiece.
+    gate: Arc<tokio::sync::Mutex<()>>,
 }
 
 impl Default for Slot {
@@ -108,6 +111,7 @@ impl Default for Slot {
             entry: None,
             generation: 0,
             touched: Instant::now(),
+            gate: Arc::new(tokio::sync::Mutex::new(())),
         }
     }
 }
@@ -457,6 +461,13 @@ fn invalidate_status(state: &AppState, key: &str) {
     }
 }
 
+/// The gate serializing upstream status fetches for this device. None when the
+/// cache is full of live entries, leaving this request to fetch on its own.
+fn status_gate(state: &AppState, key: &str) -> Option<Arc<tokio::sync::Mutex<()>>> {
+    let mut cache = lock(&state.status_cache);
+    slot_mut(&mut cache, key).map(|slot| slot.gate.clone())
+}
+
 fn lookup_status(state: &AppState, key: &str, ttl: Duration) -> CacheLookup {
     let cache = lock(&state.status_cache);
     let Some(slot) = cache.get(key) else {
@@ -479,6 +490,41 @@ fn store_status(state: &AppState, key: &str, generation: u64, body: Vec<u8>) {
             fetched: Instant::now(),
             body,
         });
+    }
+}
+
+/// A status fetch this request has to make itself. The gate rides along so it
+/// outlives `store_status` — released early, the next reader would start a
+/// second call for the same device.
+struct PendingFetch {
+    key: String,
+    generation: u64,
+    _gate: Option<tokio::sync::OwnedMutexGuard<()>>,
+}
+
+enum StatusSource {
+    Cached(Vec<u8>),
+    Upstream(PendingFetch),
+}
+
+/// Where this device's status is coming from, after waiting out any fetch
+/// already in flight for it.
+async fn resolve_status(state: &AppState, key: String) -> StatusSource {
+    if let CacheLookup::Hit(body) = lookup_status(state, &key, state.cache_ttl) {
+        return StatusSource::Cached(body);
+    }
+    let gate = match status_gate(state, &key) {
+        Some(gate) => Some(gate.lock_owned().await),
+        None => None,
+    };
+    // Look again: the fetch we queued behind may have answered this request too.
+    match lookup_status(state, &key, state.cache_ttl) {
+        CacheLookup::Hit(body) => StatusSource::Cached(body),
+        CacheLookup::Miss(generation) => StatusSource::Upstream(PendingFetch {
+            key,
+            generation,
+            _gate: gate,
+        }),
     }
 }
 
@@ -511,20 +557,20 @@ async fn api_proxy(State(state): State<Arc<AppState>>, req: Request<Body>) -> Re
         )
     };
 
-    // Serve a fresh cached status without touching the upstream API. On a miss,
-    // remember the generation the eventual response has to still match.
-    let mut pending_store = None;
-    if let Some(key) = cache_key {
-        match lookup_status(&state, &key, state.cache_ttl) {
-            CacheLookup::Hit(body) => return json_response(StatusCode::OK, body),
-            CacheLookup::Miss(generation) => pending_store = Some((key, generation)),
-        }
-    }
-
+    // Read before consulting the cache: `pending` holds a gate other readers of
+    // this device wait on, which must not span a client upload.
     let body_bytes = match axum::body::to_bytes(body, MAX_BODY_BYTES).await {
         Ok(b) => b,
         Err(_) => return error_response(StatusCode::BAD_REQUEST),
     };
+
+    let mut pending = None;
+    if let Some(key) = cache_key {
+        match resolve_status(&state, key).await {
+            StatusSource::Cached(body) => return json_response(StatusCode::OK, body),
+            StatusSource::Upstream(fetch) => pending = Some(fetch),
+        }
+    }
 
     let Some(headers) = auth_headers(&state) else {
         return error_response(StatusCode::INTERNAL_SERVER_ERROR);
@@ -545,8 +591,8 @@ async fn api_proxy(State(state): State<Arc<AppState>>, req: Request<Body>) -> Re
                         if let Some(key) = invalidate_key {
                             invalidate_status(&state, &key);
                         }
-                        if let Some((key, generation)) = pending_store {
-                            store_status(&state, &key, generation, bytes.to_vec());
+                        if let Some(fetch) = &pending {
+                            store_status(&state, &fetch.key, fetch.generation, bytes.to_vec());
                         }
                     }
                     json_response(status, bytes)
@@ -975,6 +1021,24 @@ mod tests {
         let mut cache = full_cache(UPSTREAM_TIMEOUT + Duration::from_secs(1));
         assert!(make_room(&mut cache, "device-new"));
         assert!(cache.is_empty(), "idle slots should have been reclaimed");
+    }
+
+    #[test]
+    fn shares_one_fetch_gate_per_device() {
+        let mut cache = HashMap::new();
+        let first = slot_mut(&mut cache, "device-1").map(|slot| slot.gate.clone());
+        let second = slot_mut(&mut cache, "device-1").map(|slot| slot.gate.clone());
+        let other = slot_mut(&mut cache, "device-2").map(|slot| slot.gate.clone());
+
+        let (first, second, other) = (first.unwrap(), second.unwrap(), other.unwrap());
+        assert!(
+            Arc::ptr_eq(&first, &second),
+            "both readers must queue behind the same fetch"
+        );
+        assert!(
+            !Arc::ptr_eq(&first, &other),
+            "devices must not block each other"
+        );
     }
 
     #[test]

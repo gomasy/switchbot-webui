@@ -81,6 +81,8 @@ The SwitchBot API allows a limited number of calls per day. To avoid exhausting
 it when several device cards or clients are open, status responses are cached
 server-side for `STATUS_CACHE_TTL` seconds (default `5`; set to `0` to disable).
 Cached entries are dropped immediately when a webhook reports a change.
+Concurrent readers of the same device queue behind one upstream call rather than
+each making their own, so a cold cache costs a single request per device.
 
 ### Development
 
