@@ -67,6 +67,26 @@ fn die(msg: impl std::fmt::Display) -> ! {
     process::exit(1);
 }
 
+/// A trimmed environment variable, or None when unset or blank — `.env` files
+/// routinely carry trailing spaces, and `PORT=` means unset rather than empty.
+fn env_opt(name: &str) -> Option<String> {
+    env::var(name)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+/// An optional environment variable parsed into `T`. A set but unparsable value
+/// is a misconfiguration: falling back to the default would run the server on
+/// settings nobody asked for.
+fn env_parsed<T: std::str::FromStr>(name: &str, default: T) -> T {
+    let Some(raw) = env_opt(name) else {
+        return default;
+    };
+    raw.parse()
+        .unwrap_or_else(|_| die(format!("{name} is not a valid value: {raw:?}")))
+}
+
 struct CacheEntry {
     fetched: Instant,
     body: Vec<u8>,
@@ -720,37 +740,52 @@ async fn unregister_webhook(state: &AppState, url: &str) {
     }
 }
 
+/// Everything read from the environment, validated once at startup so a
+/// misconfiguration is reported before anything is served.
+struct Settings {
+    token: HeaderValue,
+    secret: String,
+    port: u16,
+    /// SHA-256 hash (base64url) of AUTH_TOKEN. None disables authentication.
+    auth_hash: Option<String>,
+    cache_ttl: Duration,
+    /// The canonical webhook URL to register upstream, and the local path it
+    /// maps to. None when WEBHOOK_URL is unset, which disables realtime.
+    webhook: Option<(String, String)>,
+}
+
+impl Settings {
+    fn from_env() -> Self {
+        let token =
+            env_opt("SWITCHBOT_TOKEN").unwrap_or_else(|| die("SWITCHBOT_TOKEN must be set"));
+        Self {
+            token: HeaderValue::from_str(&token)
+                .unwrap_or_else(|_| die("SWITCHBOT_TOKEN contains invalid characters")),
+            secret: env_opt("SWITCHBOT_SECRET")
+                .unwrap_or_else(|| die("SWITCHBOT_SECRET must be set")),
+            port: env_parsed("PORT", 3000),
+            // Trimmed to match the login handler, which trims the submitted
+            // token — otherwise a padded AUTH_TOKEN could never be entered.
+            auth_hash: env_opt("AUTH_TOKEN").map(|t| hash_token(&t)),
+            cache_ttl: Duration::from_secs(env_parsed("STATUS_CACHE_TTL", DEFAULT_CACHE_TTL_SECS)),
+            webhook: env_opt("WEBHOOK_URL")
+                .map(|url| webhook_config(&url, Path::new(DIST_DIR)).unwrap_or_else(|e| die(e))),
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() {
     let dotenv_loaded = dotenvy::dotenv().is_ok();
-
-    let token = env::var("SWITCHBOT_TOKEN").unwrap_or_else(|_| die("SWITCHBOT_TOKEN must be set"));
-    let token = HeaderValue::from_str(&token)
-        .unwrap_or_else(|_| die("SWITCHBOT_TOKEN contains invalid characters"));
-    let secret =
-        env::var("SWITCHBOT_SECRET").unwrap_or_else(|_| die("SWITCHBOT_SECRET must be set"));
-    let port: u16 = env::var("PORT")
-        .ok()
-        .and_then(|p| p.parse().ok())
-        .unwrap_or(3000);
-    // Trimmed to match the login handler, which trims the submitted token —
-    // otherwise a padded AUTH_TOKEN could never be entered.
-    let auth_hash = env::var("AUTH_TOKEN")
-        .ok()
-        .map(|t| t.trim().to_string())
-        .filter(|t| !t.is_empty())
-        .map(|t| hash_token(&t));
+    let Settings {
+        token,
+        secret,
+        port,
+        auth_hash,
+        cache_ttl,
+        webhook: webhook_settings,
+    } = Settings::from_env();
     let auth_enabled = auth_hash.is_some();
-    let cache_ttl = Duration::from_secs(
-        env::var("STATUS_CACHE_TTL")
-            .ok()
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(DEFAULT_CACHE_TTL_SECS),
-    );
-    let webhook_settings = env::var("WEBHOOK_URL")
-        .ok()
-        .filter(|u| !u.is_empty())
-        .map(|url| webhook_config(&url, Path::new(DIST_DIR)).unwrap_or_else(|e| die(e)));
 
     let client = reqwest::Client::builder()
         .timeout(UPSTREAM_TIMEOUT)
