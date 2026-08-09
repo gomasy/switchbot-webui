@@ -227,15 +227,35 @@ fn authorize(state: &AppState, headers: &HeaderMap) -> Option<Session> {
         .map(Session::Active)
 }
 
+/// The `auth` cookie. An empty value with a zero max-age clears it, but only if
+/// the other attributes match the ones it was set with.
+fn auth_cookie(value: &str, max_age: u64, secure: bool) -> String {
+    let secure = if secure { "; Secure" } else { "" };
+    format!("auth={value}; Path=/; Max-Age={max_age}; HttpOnly; SameSite=Lax{secure}")
+}
+
+/// Whether the client reached this server over TLS. Origin wins when present:
+/// it is what the browser loaded the page over, and a cookie marked Secure for
+/// an http page would never be sent back.
+fn is_https(headers: &HeaderMap) -> bool {
+    if let Some(origin) = headers.get(ORIGIN).and_then(|v| v.to_str().ok()) {
+        return origin.starts_with("https://");
+    }
+    headers
+        .get("x-forwarded-proto")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|proto| proto.split(',').next())
+        .is_some_and(|proto| proto.trim().eq_ignore_ascii_case("https"))
+}
+
 /// Mint a session cookie and record its digest. None when the platform RNG
 /// fails, which the caller reports as a server error rather than handing out a
 /// predictable session.
-fn start_session(sessions: &Sessions) -> Option<HeaderValue> {
+fn start_session(sessions: &Sessions, headers: &HeaderMap) -> Option<HeaderValue> {
     let mut bytes = [0u8; 32];
     getrandom::fill(&mut bytes).ok()?;
     let value = URL_SAFE_NO_PAD.encode(bytes);
-    let max_age = SESSION_TTL.as_secs();
-    let cookie = format!("auth={value}; Path=/; Max-Age={max_age}; HttpOnly; SameSite=Lax");
+    let cookie = auth_cookie(&value, SESSION_TTL.as_secs(), is_https(headers));
     let cookie = HeaderValue::from_str(&cookie).ok()?;
 
     sessions.start(session_id(&value));
@@ -286,7 +306,7 @@ async fn reject_cross_site(req: Request<Body>, next: axum::middleware::Next) -> 
 /// Verify the token against AUTH_TOKEN and start a session on match. The cookie
 /// carries a fresh random value, so it can be revoked without changing
 /// AUTH_TOKEN and never encodes the token itself.
-async fn login(State(state): State<Arc<AppState>>, body: String) -> Response {
+async fn login(State(state): State<Arc<AppState>>, headers: HeaderMap, body: String) -> Response {
     let Some(expected) = &state.auth_hash else {
         return error_response(StatusCode::NOT_FOUND);
     };
@@ -306,7 +326,7 @@ async fn login(State(state): State<Arc<AppState>>, body: String) -> Response {
     *failures = 0;
     drop(failures);
 
-    let Some(cookie) = start_session(&state.sessions) else {
+    let Some(cookie) = start_session(&state.sessions, &headers) else {
         return error_response(StatusCode::INTERNAL_SERVER_ERROR);
     };
     (StatusCode::NO_CONTENT, [(SET_COOKIE, cookie)]).into_response()
@@ -318,12 +338,12 @@ async fn logout(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Respo
     state
         .sessions
         .revoke(auth_cookies(&headers).map(session_id));
-    let cookie = "auth=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax";
-    (
-        StatusCode::NO_CONTENT,
-        [(SET_COOKIE, HeaderValue::from_static(cookie))],
-    )
-        .into_response()
+    let cookie = auth_cookie("", 0, is_https(&headers));
+    match HeaderValue::from_str(&cookie) {
+        Ok(cookie) => (StatusCode::NO_CONTENT, [(SET_COOKIE, cookie)]).into_response(),
+        // The session is revoked either way, so what the client keeps is inert.
+        Err(_) => StatusCode::NO_CONTENT.into_response(),
+    }
 }
 
 /// Expose the flags the frontend needs before rendering: whether the UI
@@ -1039,6 +1059,41 @@ mod tests {
             !Arc::ptr_eq(&first, &other),
             "devices must not block each other"
         );
+    }
+
+    #[test]
+    fn clears_the_cookie_with_the_attributes_it_set() {
+        let attributes = |cookie: String| {
+            cookie
+                .split("; ")
+                .skip(1)
+                .filter(|a| !a.starts_with("Max-Age="))
+                .map(str::to_owned)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            attributes(auth_cookie("value", SESSION_TTL.as_secs(), true)),
+            attributes(auth_cookie("", 0, true)),
+            "a clear with mismatched attributes is ignored"
+        );
+        assert!(auth_cookie("value", 1, true).ends_with("; Secure"));
+        assert!(!auth_cookie("value", 1, false).contains("Secure"));
+    }
+
+    #[test]
+    fn marks_the_session_cookie_secure_only_over_tls() {
+        assert!(is_https(&headers(&[("origin", "https://app.example")])));
+        assert!(!is_https(&headers(&[("origin", "http://localhost:3000")])));
+        // Origin wins over a proxy header that disagrees with it.
+        assert!(!is_https(&headers(&[
+            ("origin", "http://localhost:3000"),
+            ("x-forwarded-proto", "https"),
+        ])));
+        assert!(is_https(&headers(&[("x-forwarded-proto", "https")])));
+        // A chained proxy appends, so the client's own hop comes first.
+        assert!(is_https(&headers(&[("x-forwarded-proto", "https, http")])));
+        assert!(!is_https(&headers(&[("x-forwarded-proto", "http")])));
+        assert!(!is_https(&headers(&[("host", "localhost:3000")])));
     }
 
     #[test]

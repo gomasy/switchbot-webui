@@ -53,6 +53,12 @@ restarting the server logs everyone out. Failed logins are handled one at a time
 with a delay that doubles per failure (up to 30s), so guesses cannot be
 parallelized.
 
+The session cookie is always `HttpOnly`, and is marked `Secure` when the request
+arrived over HTTPS — read from `Origin`, falling back to `X-Forwarded-Proto`.
+Behind a TLS-terminating proxy, forward that header (nginx:
+`proxy_set_header X-Forwarded-Proto $scheme;`); without it a request that
+carries no `Origin` looks like plain HTTP, and the cookie is left unmarked.
+
 Commands are refused when the browser reports the request as cross-site, whether
 or not `AUTH_TOKEN` is set. The check reads `Sec-Fetch-Site`, falling back to
 comparing `Origin` against `Host`. Behind a reverse proxy, forward the original
