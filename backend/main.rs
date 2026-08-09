@@ -293,7 +293,7 @@ async fn login(State(state): State<Arc<AppState>>, body: String) -> Response {
     if !eq_hashed(&hash_token(body.trim()), expected) {
         *failures = failures.saturating_add(1);
         let delay = LOGIN_BASE_DELAY
-            .saturating_mul(1 << (*failures - 1).min(6))
+            .saturating_mul(1 << failures.saturating_sub(1).min(6))
             .min(LOGIN_MAX_DELAY);
         // Sleep while still holding the gate so the next attempt waits too.
         tokio::time::sleep(delay).await;
