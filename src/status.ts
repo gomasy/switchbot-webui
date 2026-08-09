@@ -77,7 +77,8 @@ function lockLabel(lockState: string, locked: string, unlocked: string, other: s
 function isEnabled(value: boolean | number | string): boolean {
   if (typeof value === "boolean") return value;
   if (typeof value === "number") return value === 1;
-  return value.toLowerCase() === "on" || value.toLowerCase() === "true";
+  const state = value.toLowerCase();
+  return state === "on" || state === "true";
 }
 
 /**

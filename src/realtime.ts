@@ -185,7 +185,7 @@ export function useRealtime(
 
     return () => {
       stopped = true;
-      if (timer) clearTimeout(timer);
+      if (timer !== undefined) clearTimeout(timer);
       socket?.close();
     };
   }, [enabled]);
