@@ -1,4 +1,4 @@
-FROM node:24.19.0-alpine AS frontend
+FROM node:24.20.0-alpine AS frontend
 ARG GIT_HASH=unknown
 ARG BUILD_DATE=
 ENV GIT_HASH=$GIT_HASH BUILD_DATE=$BUILD_DATE
