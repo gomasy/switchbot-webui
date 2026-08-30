@@ -1,6 +1,6 @@
 {
   "name": "switchbot-webui",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "private": true,
   "type": "module",
   "source": "src/index.html",
