@@ -299,6 +299,15 @@ export function buildStatusItems(status: DeviceStatus | null): StatusItem[] {
   return items;
 }
 
+/** The camera's snapshot URL, or null if missing or past `expireAt` (seconds). */
+export function latestImageUrl(status: DeviceStatus | null): string | null {
+  const image = status?.latestImage;
+  if (!image?.imageUrl) return null;
+  if (typeof image.expireAt === "number" && image.expireAt * 1000 <= Date.now())
+    return null;
+  return image.imageUrl;
+}
+
 export function deviceColorToHex(color: string): string {
   const [r, g, b] = color.split(":").map(Number);
   // Clamp to a valid byte (and coerce NaN to 0) so the result is always a

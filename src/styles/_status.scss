@@ -28,3 +28,11 @@
   color: var(--text-secondary);
   font-size: $text-xs;
 }
+
+// A camera's last snapshot, shown above the readout.
+.status-snapshot {
+  display: block;
+  width: 100%;
+  margin-bottom: $space-md;
+  border-radius: $radius-md;
+}

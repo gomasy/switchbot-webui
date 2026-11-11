@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getControls, getDeviceIcon, getTypeLabel } from "../deviceRegistry";
 import { useLiveStatus, useModalClose, useSendCommand } from "../hooks";
 import { t } from "../i18n";
-import { buildStatusItems } from "../status";
+import { buildStatusItems, latestImageUrl } from "../status";
 import type { Device, InfraredDevice, DeviceStatus, ToastFn } from "../types";
 import type { SendFn } from "./controls";
 import { IrControls } from "./IrControls";
@@ -84,6 +84,7 @@ export function DeviceDetail({
   const typeLabel = getTypeLabel(device);
   const controls = isInfrared ? [] : getControls(typeLabel);
   const statusItems = buildStatusItems(status);
+  const snapshot = latestImageUrl(status);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -120,6 +121,17 @@ export function DeviceDetail({
             </div>
           )}
           <div hidden={loading}>
+            {snapshot && (
+              <img
+                className="status-snapshot"
+                src={snapshot}
+                alt={t("status.latestImage")}
+                // Keep our address away from the image host.
+                referrerPolicy="no-referrer"
+                // A signed URL can expire while the sheet is open.
+                onError={(e) => (e.currentTarget.hidden = true)}
+              />
+            )}
             {statusItems.length > 0 && (
               <div className="status-section">
                 <div className="status-grid">
@@ -149,7 +161,7 @@ export function DeviceDetail({
               />
             )}
 
-            {!isInfrared && controls.length === 0 && statusItems.length === 0 && (
+            {!isInfrared && controls.length === 0 && statusItems.length === 0 && !snapshot && (
               <div className="empty-state">
                 <div className="empty-state-icon">📊</div>
                 <div className="empty-state-text">

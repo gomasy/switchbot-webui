@@ -165,6 +165,7 @@
   "status.firmware": "Firmware",
   "status.halfLocked": "Half locked",
   "status.humidity": "Humidity",
+  "status.latestImage": "Latest image",
   "status.lightLevel": "Light level",
   "status.lock": "Lock",
   "status.locked": "Locked",

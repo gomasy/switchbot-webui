@@ -84,6 +84,8 @@ export interface DeviceStatus {
   colorLightPower?: string;
   colorLightBrightness?: number;
   colorLightRGB?: string;
+  /** The newer cameras' last snapshot; an empty object when there is none. */
+  latestImage?: { imageUrl?: string; expireAt?: number };
   [key: string]: unknown;
 }
 

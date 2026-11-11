@@ -111,10 +111,12 @@ export function normalizeWebhook(ctx: Record<string, unknown>): StatusUpdate | n
     out.waterDetected = ctx.detectionState === 1;
   } else if (typeof ctx.detectionState === "string") {
     const detected = ctx.detectionState === "DETECTED";
+    const category = getCategory(out.deviceType);
     // The Presence Sensor reports occupancy, which its status API calls
     // Detected; every other sensor reporting this field means motion.
-    if (getCategory(out.deviceType) === "presence") out.Detected = detected;
-    else out.moveDetected = detected;
+    if (category === "presence") out.Detected = detected;
+    // The Solar Pan/Tilt Cam never reports NOT_DETECTED; don't latch motion.
+    else if (category !== "motionCamera") out.moveDetected = detected;
   }
 
   return normalizeDeviceStatus(out);

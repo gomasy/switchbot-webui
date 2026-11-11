@@ -21,6 +21,7 @@ export type DeviceCategory =
   | "keypad"
   | "water"
   | "camera"
+  | "motionCamera"
   | "doorbell"
   | "remote"
   | "hub"
@@ -96,6 +97,8 @@ const CATEGORIES: Record<DeviceCategory, CategoryInfo> = {
   keypad: { icon: "🔢", controls: [] },
   water: { icon: "💧", controls: [] },
   camera: { icon: "📷", controls: [] },
+  // Cameras whose motion detection the API can switch.
+  motionCamera: { icon: "📷", controls: ["motionDetection"] },
   doorbell: { icon: "🔔", controls: ["motionDetection"] },
   remote: { icon: "📱", controls: [] },
   hub: { icon: "📡", controls: [] },
@@ -158,6 +161,7 @@ const CATEGORY_PATTERNS: [string[], DeviceCategory][] = [
   [["keypad"], "keypad"],
   [["doorbell"], "doorbell"],
   [["water detector", "water leak"], "water"],
+  [["solar pan/tilt cam"], "motionCamera"],
   [["cam"], "camera"],
   [["remote"], "remote"],
   [["hub"], "hub"],

@@ -165,6 +165,7 @@
   "status.firmware": "ファームウェア",
   "status.halfLocked": "半施錠",
   "status.humidity": "湿度",
+  "status.latestImage": "最新の画像",
   "status.lightLevel": "照度",
   "status.lock": "ロック",
   "status.locked": "施錠",
