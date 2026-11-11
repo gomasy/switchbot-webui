@@ -163,6 +163,7 @@
   "status.energyToday": "本日の消費電力量",
   "status.filter": "フィルター",
   "status.firmware": "ファームウェア",
+  "status.halfLocked": "半施錠",
   "status.humidity": "湿度",
   "status.lightLevel": "照度",
   "status.lock": "ロック",

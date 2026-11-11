@@ -66,11 +66,14 @@ export function normalizeDeviceStatus<T extends Partial<DeviceStatus>>(status: T
 const LOCKED_STATES = ["locked", "lock", "latchboltlocked"];
 const UNLOCKED_STATES = ["unlocked", "unlock"];
 
-/** Lock states other than locked/unlocked (notably "jammed") need attention. */
-function lockLabel(lockState: string, locked: string, unlocked: string, other: string) {
-  if (LOCKED_STATES.includes(lockState)) return locked;
-  if (UNLOCKED_STATES.includes(lockState)) return unlocked;
-  return other;
+const LOCK_ICONS = { locked: "🔒", unlocked: "🔓", halfLocked: "⚠️", unknown: "⚠️" };
+
+/** Anything but locked/unlocked (notably "jammed") needs attention. */
+function lockKind(lockState: string): keyof typeof LOCK_ICONS {
+  if (LOCKED_STATES.includes(lockState)) return "locked";
+  if (UNLOCKED_STATES.includes(lockState)) return "unlocked";
+  // Lock Ultra Max: latched, but the deadbolt is not thrown.
+  return lockState === "halflocked" ? "halfLocked" : "unknown";
 }
 
 /** True when a boolean-ish flag from the API (boolean, 0/1, "on") is set. */
@@ -155,8 +158,7 @@ export function formatStatusSummary(status: DeviceStatus | null): string {
   if (typeof status.humidity === "number") parts.push(`${status.humidity}%`);
   if (typeof status.CO2 === "number") parts.push(`${status.CO2}ppm`);
   if (typeof status.battery === "number") parts.push(`🔋${status.battery}%`);
-  if (status.lockState)
-    parts.push(lockLabel(status.lockState, "🔒", "🔓", "⚠️"));
+  if (status.lockState) parts.push(LOCK_ICONS[lockKind(status.lockState)]);
   if (status.waterDetected) parts.push(`🚨 ${t("status.waterLeak")}`);
   if (status.Detected) parts.push(`🚶 ${t("status.detected")}`);
   if (typeof status.switch1Status === "number")
@@ -231,15 +233,7 @@ export function buildStatusItems(status: DeviceStatus | null): StatusItem[] {
 
   // Openings
   if (status.lockState)
-    add(
-      t("status.lock"),
-      lockLabel(
-        status.lockState,
-        t("status.locked"),
-        t("status.unlocked"),
-        t("status.unknown"),
-      ),
-    );
+    add(t("status.lock"), t(`status.${lockKind(status.lockState)}`));
   if (status.doorState) add(t("status.door"), openClosed(status.doorState));
   if (status.openState) add(t("status.openClose"), openClosed(status.openState));
   if (typeof status.position === "number")

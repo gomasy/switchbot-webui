@@ -163,6 +163,7 @@
   "status.energyToday": "Energy today",
   "status.filter": "Filter",
   "status.firmware": "Firmware",
+  "status.halfLocked": "Half locked",
   "status.humidity": "Humidity",
   "status.lightLevel": "Light level",
   "status.lock": "Lock",
