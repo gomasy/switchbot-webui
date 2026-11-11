@@ -3,6 +3,7 @@ import {
   formatPosition,
   getCategory,
   getLockCommands,
+  LIGHT_EFFECTS,
   type ControlKind,
 } from "../deviceRegistry";
 import { t } from "../i18n";
@@ -56,6 +57,7 @@ export function PhysicalControls({
   const [position, setPosition] = useState(0);
   const [humidity, setHumidity] = useState(50);
   const [color, setColor] = useState("#ffffff");
+  const [effectId, setEffectId] = useState(0);
   const category = getCategory(deviceType);
   const lockCommands = getLockCommands(deviceType);
 
@@ -145,6 +147,39 @@ export function PhysicalControls({
 
       {controls.includes("dualLight") && (
         <DualLightControls status={status} send={send} sending={sending} />
+      )}
+
+      {controls.includes("lightEffect") && (
+        <ControlSection title={t("control.lightEffect")}>
+          {/* Sent on submit: a select's change event fires per arrow key. */}
+          <form
+            className="custom-btn-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              send("setLightEffect", { effectId });
+            }}
+          >
+            <select
+              className="custom-btn-input"
+              value={effectId}
+              aria-label={t("control.lightEffect")}
+              onChange={(e) => setEffectId(Number(e.target.value))}
+            >
+              {LIGHT_EFFECTS.map((effect, id) => (
+                <option key={effect} value={id}>
+                  {t(`effect.${effect}`)}
+                </option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              className="action-btn action-btn-primary"
+              disabled={sending}
+            >
+              {t("control.send")}
+            </button>
+          </form>
+        </ControlSection>
       )}
 
       {hasPosition && (

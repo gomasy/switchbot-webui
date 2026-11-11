@@ -62,6 +62,7 @@ export type ControlKind =
   | "motionDetection"
   | "artFrame"
   | "weatherText"
+  | "lightEffect"
   | "companion";
 
 interface CategoryInfo {
@@ -132,6 +133,9 @@ const ADVANCED_VACUUM_MODELS = ["s10", "s20", "k20", "k11", "combo"];
 
 /** Vacuums with a water base: only these accept a mop moisture level. */
 const MOPPING_VACUUM_MODELS = ["s10", "s20"];
+
+/** Only the addressable lights document setLightEffect. */
+const LIGHT_EFFECT_MODELS = ["rgbic", "outdoor lights"];
 
 function matchesModel(deviceType: string, models: string[]): boolean {
   const dt = deviceType.toLowerCase();
@@ -208,7 +212,10 @@ export function getDeviceIcon(deviceType: string | undefined): string {
 }
 
 export function getControls(deviceType: string): ControlKind[] {
-  return CATEGORIES[getCategory(deviceType)].controls;
+  const controls = CATEGORIES[getCategory(deviceType)].controls;
+  return matchesModel(deviceType, LIGHT_EFFECT_MODELS)
+    ? [...controls, "lightEffect"]
+    : controls;
 }
 
 export function isHub(deviceType: string): boolean {
@@ -272,6 +279,36 @@ export function getLockCommands(deviceType: string): string[] {
   if (dt.includes("wifi")) commands.push("nightLatchUnlock");
   return commands;
 }
+
+/** Presets for setLightEffect; the index is the effectId. */
+export const LIGHT_EFFECTS = [
+  "romance",
+  "vitality",
+  "heartthrob",
+  "party",
+  "dynamic",
+  "mystery",
+  "lightning",
+  "rock",
+  "starlight",
+  "valentine",
+  "dream",
+  "alarm",
+  "fireworks",
+  "waves",
+  "christmas",
+  "rainbow",
+  "game",
+  "halloween",
+  "meditation",
+  "starlitSky",
+  "sleep",
+  "film",
+  "sunrise",
+  "sunset",
+  "newYear",
+  "cherryBlossom",
+] as const;
 
 export interface FanOption {
   value: string;
